@@ -1,0 +1,2283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corner Critters "Cornered" Prototype</title>
+<style>
+  /* --- GLOBAL STYLES & SCROLLBAR FIXES --- */
+  body { 
+      font-family: sans-serif; 
+      background-color: #dbe2dd; 
+      background-image: url('images/background.jpg'); 
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-attachment: fixed; 
+      color: #333; 
+      margin: 0; 
+      padding: 0; 
+      overflow-x: hidden; 
+      scrollbar-width: thin; 
+      scrollbar-color: #ccc transparent;
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #aaa; }
+  
+  /* --- SCREENS (SPLASH & GAME OVER) --- */
+  #splash, #game-over-screen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #1a1a1a; color: #fff; z-index: 2000;
+      display: flex; align-items: center; justify-content: center; flex-direction: column;
+      transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+  #game-over-screen { display: none; background: rgba(0,0,0,0.9); z-index: 3000; }
+  
+  .splash-title {
+      animation: pulse 2s infinite ease-in-out;
+      margin-bottom: 10px;
+  }
+  .game-over-title { font-size: 5rem; margin-bottom: 30px; text-shadow: 0 0 20px #fff; text-transform: uppercase; }
+  
+  .splash-subtitle { font-size: 1.2rem; color: #aaa; margin-bottom: 40px; text-align: center; }
+  .action-btn { font-size: 1.5rem; padding: 15px 40px; background: #cc0000; box-shadow: 0 0 15px rgba(204, 0, 0, 0.5); cursor: pointer; border: none; color: white; border-radius: 8px;}
+  .action-btn:hover { background: #ff3333; box-shadow: 0 0 25px rgba(255, 51, 51, 0.8); }
+
+  @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+  /* --- LAYOUT (COMPACT) --- */
+  .game-wrapper { max-width: 1100px; margin: 5px auto 15px auto; display: none; justify-content: space-between; align-items: flex-start; gap: 15px; padding: 0 20px; }
+  .game-board { flex-grow: 1; text-align: center; }
+  
+  h2 { margin: 2px 0; font-size: 1rem; position: relative;}
+  
+  .score-display { position: relative; background: #fff; border: 3px solid #ccc; border-radius: 12px; padding: 10px; text-align: center; min-width: 90px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: all 0.2s; overflow: hidden; }
+  .score-display h3 { margin-top: 0; color: #555; font-size: 0.9rem; }
+  .large-score { font-size: 2.8rem; font-weight: bold; color: #cc0000; margin: 2px 0; transition: transform 0.2s; }
+
+  /* --- LEGEND PANEL & BURN RULE --- */
+  .right-container { display: flex; gap: 10px; align-items: flex-start; flex-direction: column; }
+  .legend-panel { background: #fff; border: 3px solid #ccc; border-radius: 12px; padding: 12px; text-align: left; box-shadow: 0 4px 10px rgba(0,0,0,0.05); max-width: 210px; }
+  .legend-panel h3 { margin-top: 0; margin-bottom: 10px; color: #555; font-size: 0.9rem; text-align: center; }
+  .legend-item { display: flex; align-items: center; margin-bottom: 8px; font-size: 12px; color: #333; }
+  .legend-color { width: 14px; height: 14px; border-radius: 4px; margin-right: 8px; border: 2px solid; flex-shrink: 0; }
+  
+  .burn-rule-box {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 2px dashed #ccc;
+      font-size: 11px;
+      color: #555;
+      line-height: 1.4;
+  }
+  .burn-rule-box b { color: #cc0000; }
+
+  .grid-divider { border: none; border-top: 4px solid #ccc; width: 60%; margin: 6px auto; border-radius: 2px; }
+
+  .grid-2x2 { display: grid; grid-template-columns: repeat(2, 100px); grid-template-rows: repeat(2, 130px); gap: 6px; justify-content: center; margin-bottom: 5px; }
+  
+  /* --- CARD STYLING & DEPTH EFFECTS --- */
+  .card-slot { 
+    position: relative;
+    background-color: #fff; border: 3px dashed #ccc; border-radius: 10px; 
+    display: flex; align-items: center; justify-content: center; 
+    color: #888; font-weight: bold; cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
+    user-select: none; flex-direction: column; padding: 4px; box-sizing: border-box; text-align: center; 
+    overflow: hidden;
+  }
+  .card-slot:not(.filled-dino):not(.filled-battle):not(.filled-produce):not(.filled-safari):not(.filled-pet):hover { background-color: #e0e0e0; border-color: #333; color: #333; }
+  
+  .filled-dino, .filled-battle, .filled-produce, .filled-safari, .filled-pet {
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .filled-dino:hover, .filled-battle:hover, .filled-produce:hover, .filled-safari:hover, .filled-pet:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 16px rgba(0,0,0,0.18), 0 4px 8px rgba(0,0,0,0.12);
+  }
+
+  .filled-dino, .color-dino { background-color: #ffcccc; border-color: #cc0000; color: #cc0000; }
+  .filled-battle, .color-battle { background-color: #e9d5ff; border-color: #7c3aed; color: #4c1d95; }
+  .filled-produce, .color-produce { background-color: #ccffcc; border-color: #009900; color: #009900; }
+  .filled-safari, .color-safari { background-color: #ffebcc; border-color: #cc7a00; color: #cc7a00; }
+  .filled-pet, .color-pet { background-color: #cce5ff; border-color: #0055cc; color: #0055cc; }
+  
+  .hand-container { display: flex; gap: 6px; justify-content: center; min-height: 115px; margin-bottom: 5px; flex-wrap: wrap; }
+  .hand-card { width: 85px; height: 115px; font-size: 11px; }
+  
+  /* --- PLAYER HAND PROMINENCE UPGRADE & GLOW --- */
+  @keyframes hand-glow {
+      0% { box-shadow: 0 0 10px rgba(255, 255, 255, 0.4), 0 6px 12px rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.4); }
+      100% { box-shadow: 0 0 25px rgba(255, 255, 255, 1), 0 10px 20px rgba(0,0,0,0.5); border-color: #fff; }
+  }
+
+  #player-hand {
+      min-height: 155px;
+      align-items: flex-end; 
+      padding-top: 15px;
+  }
+  #player-hand .hand-card {
+      width: 98px; 
+      height: 135px; 
+      font-size: 11.5px;
+      margin-top: -10px; 
+      z-index: 5;
+      animation: hand-glow 1.5s infinite alternate;
+      border: 3px solid #fff;
+  }
+  #player-hand .hand-card:hover {
+      transform: translateY(-25px) scale(1.12); 
+      z-index: 20;
+  }
+
+  .card-art { display: block; width: 100%; max-height: 48px; object-fit: contain; margin: 0 auto 4px; border-radius: 6px; background: rgba(255,255,255,0.65); }
+  .card-name-label { line-height: 1.1; font-size: 10px; }
+  
+  .selected { box-shadow: 0 0 25px 8px rgba(0, 255, 0, 0.9) !important; border-color: #0f0 !important; transform: translateY(-30px) scale(1.18) !important; z-index: 25 !important;}
+  .burn-mode { box-shadow: 0 0 25px 8px rgba(255, 0, 0, 0.9) !important; border-color: #f00 !important; transform: translateY(-30px) scale(1.18) !important; z-index: 25 !important;}
+  .action-highlight { box-shadow: 0 0 10px 3px rgba(0, 0, 255, 0.7); }
+  
+  .action-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 5px 0; }
+  .difficulty-panel {
+      background: #fff; border: 3px solid #ccc; border-radius: 12px; padding: 6px 12px; margin: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center;
+  }
+  .difficulty-panel label {
+      display: block; font-size: 10px; font-weight: bold; margin-bottom: 4px; color: #555; letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .difficulty-toggle {
+      display: flex; gap: 5px; justify-content: center; background: #f3f3f3; border: 2px solid #d9d9d9; border-radius: 8px; padding: 3px;
+  }
+  .difficulty-option {
+      padding: 6px 10px; border: none; border-radius: 6px; background: transparent; color: #555; cursor: pointer; font-weight: bold; font-size: 11px; transition: all 0.2s ease;
+  }
+  .difficulty-option.active {
+      background: linear-gradient(180deg, #cc0000 0%, #a80000 100%);
+      color: #fff; box-shadow: 0 2px 8px rgba(204, 0, 0, 0.35);
+  }
+  .difficulty-option:hover { color: #222; }
+  .difficulty-option.active:hover { color: #fff; }
+  .title-row {
+      display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 5px; margin-bottom: 10px; width: 100%;
+  }
+  .main-game-title {
+      display: none; 
+      margin: 0;
+      animation: pulse 2.5s infinite ease-in-out;
+      text-align: center;
+  }
+  .new-game-btn {
+      background: #0055cc;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 85, 204, 0.25);
+  }
+  .new-game-btn:hover { background: #0a73ff; transform: translateY(-1px); box-shadow: 0 6px 12px rgba(0, 85, 204, 0.35); transition: all 0.2s; }
+  .etsy-banner {
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      background: rgba(255, 255, 255, 0.96);
+      border: 2px solid #cc0000;
+      color: #cc0000;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+      z-index: 1500;
+      user-select: none;
+  }
+  
+  /* --- GRAVEYARD STACK STYLING --- */
+  .graveyard { background-color: #444; color: #fff; border: 3px solid #222; width: 90px; height: 60px; margin: 0; font-size: 11px; transition: all 0.3s ease; }
+  .graveyard:hover { background-color: #555; transform: translateY(-2px); }
+  .gy-stack-1 { box-shadow: -2px 2px 0px #2a2a2a, -3px 3px 0px #111; }
+  .gy-stack-2 { box-shadow: -2px 2px 0px #2a2a2a, -3px 3px 0px #111, -4px 4px 0px #2a2a2a, -5px 5px 0px #111; }
+  .gy-stack-3 { box-shadow: -2px 2px 0px #2a2a2a, -3px 3px 0px #111, -4px 4px 0px #2a2a2a, -5px 5px 0px #111, -6px 6px 0px #2a2a2a, -7px 7px 0px #111; }
+
+  /* --- DIRECT ATTACK BUTTON DESIGN --- */
+  .face-target { 
+      display: inline-block; 
+      padding: 8px 18px; 
+      background: linear-gradient(135deg, #ff4d4d, #cc0000); 
+      border: 2px solid #ff9999; 
+      color: #fff;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      border-radius: 25px; 
+      cursor: crosshair; 
+      transition: all 0.2s ease; 
+      margin-bottom: 6px; 
+      font-size: 13px;
+      box-shadow: 0 4px 15px rgba(204, 0, 0, 0.4);
+  }
+  .face-target:hover { 
+      background: linear-gradient(135deg, #ff3333, #990000); 
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(204, 0, 0, 0.7);
+      border-color: #fff; 
+  }
+
+  /* --- TARGET HIGHLIGHT INDICATOR --- */
+  .valid-target {
+      box-shadow: 0 0 15px 4px rgba(255, 215, 0, 0.8) !important;
+      border-color: #ffaa00 !important;
+      animation: pulse-target 1.5s infinite;
+      cursor: pointer !important;
+      z-index: 5;
+  }
+  @keyframes pulse-target {
+      0% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.6); }
+      50% { box-shadow: 0 0 20px rgba(255, 215, 0, 1); }
+      100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.6); }
+  }
+
+  /* --- BURN INDICATOR BANNER --- */
+  .burn-indicator {
+      display: none;
+      background: linear-gradient(90deg, transparent, #cc0000, transparent);
+      color: #fff;
+      font-weight: bold;
+      text-align: center;
+      padding: 4px;
+      margin-bottom: 5px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 12px;
+      animation: pulse-burn-ui 1.5s infinite;
+  }
+  @keyframes pulse-burn-ui {
+      0% { opacity: 0.8; }
+      50% { opacity: 1; text-shadow: 0 0 10px #fff; }
+      100% { opacity: 0.8; }
+  }
+
+  /* --- CUSTOM CSS TOOLTIP --- */
+  .custom-tooltip {
+      position: absolute;
+      background: rgba(20, 20, 20, 0.95);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.4;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+      max-width: 220px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      border: 1px solid #666;
+      text-align: left;
+  }
+
+  #gy-modal { display: none; position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: #fff; border: 4px solid #333; padding: 20px; z-index: 100; max-width: 90%; max-height: 80%; overflow-y: auto; border-radius: 12px; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
+  #gy-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; }
+
+  button.sys-btn { padding: 6px 12px; font-size: 13px; cursor: pointer; border-radius: 8px; background: #333; color: #fff; border: none; margin: 0 4px;}
+  button.sys-btn:hover { background: #555; }
+  button.sys-btn:disabled { background: #aaa; cursor: not-allowed; }
+
+  #console { text-align: left; background: #222; color: #0f0; padding: 8px; border-radius: 8px; font-family: monospace; height: 75px; overflow-y: auto; font-size: 12px; line-height: 1.4; margin-top: 0px; }
+
+  /* --- BOUNCY EFFECTS & ANIMATIONS --- */
+  @keyframes anim-drop { 
+      0% { transform: scale(1.6) translateY(-40px); opacity: 0; } 
+      50% { transform: scale(0.9) translateY(5px); opacity: 1; }
+      75% { transform: scale(1.05) translateY(-2px); }
+      100% { transform: scale(1) translateY(0); opacity: 1; } 
+  }
+  @keyframes anim-lunge { 
+      0% { transform: translateY(0) scale(1); } 
+      40% { transform: translateY(-45px) scale(1.15); } 
+      60% { transform: translateY(-45px) scale(1.15); } 
+      100% { transform: translateY(0) scale(1); } 
+  }
+  @keyframes anim-burn { 
+      0% { transform: scale(1); opacity: 1; filter: sepia(0) hue-rotate(0); } 
+      100% { transform: scale(0.4); opacity: 0; filter: sepia(1) hue-rotate(-50deg) saturate(5); } 
+  }
+  @keyframes anim-draw { 
+      0% { transform: translateY(60px) scale(0.5); opacity: 0; } 
+      60% { transform: translateY(-10px) scale(1.1); opacity: 1; }
+      100% { transform: translateY(0) scale(1); opacity: 1; } 
+  }
+  
+  /* SHAKE & DAMAGE FLASH FX */
+  @keyframes screen-shake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-8px, 4px); }
+    40% { transform: translate(8px, -4px); }
+    60% { transform: translate(-8px, -4px); }
+    80% { transform: translate(8px, 4px); }
+  }
+  @keyframes anim-damage {
+    0% { background-color: #ff3333; transform: scale(1.15); color: #fff; box-shadow: 0 0 25px rgba(255, 51, 51, 0.9); border-color: #ff0000; z-index: 10; }
+    100% { background-color: #fff; transform: scale(1); }
+  }
+
+  .anim-drop { animation: anim-drop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  .anim-lunge { animation: anim-lunge 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; z-index: 10; position: relative; }
+  .anim-burn { animation: anim-burn 0.4s ease-out forwards; }
+  .anim-draw { animation: anim-draw 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  
+  .screen-shake { animation: screen-shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+  .anim-damage { animation: anim-damage 0.5s ease-out forwards !important; }
+
+  @keyframes anim-stolen {
+      0% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 215, 0, 0); border-color: #ffaa00; }
+      25% { transform: scale(1.15); box-shadow: 0 0 25px rgba(255, 215, 0, 0.9); }
+      50% { transform: scale(0.9); box-shadow: 0 0 35px rgba(255, 215, 0, 1); border-color: #ffdd55; }
+      100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 215, 0, 0); border-color: #ffaa00; }
+  }
+  .anim-stolen {
+      animation: anim-stolen 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      position: relative;
+      overflow: visible;
+      z-index: 10;
+  }
+
+  .stolen-banner {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 196, 0, 0.95);
+      color: #111;
+      border: 2px solid rgba(0,0,0,0.4);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 20;
+      box-shadow: 0 0 12px rgba(255, 196, 0, 0.9);
+  }
+
+  /* --- BOUNCY CLAW SLASH & ATTACK POPUP FX --- */
+  #attacker-popup {
+      position: fixed;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 5000;
+      pointer-events: none;
+      display: none;
+  }
+  .anim-popup {
+      animation: popup-attack 1.2s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+  }
+  @keyframes popup-attack {
+      0% { transform: translate(-50%, -100%) scale(0.1); opacity: 0; }
+      30% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+      50% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      80% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; filter: brightness(1.2); }
+      100% { transform: translate(-50%, 20%) scale(0.5); opacity: 0; }
+  }
+
+  .slash-fx {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 100;
+  }
+  .claw-mark {
+      position: absolute;
+      width: 8px;
+      height: 90%;
+      background: #cc0000;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #ff0000, 0 0 5px #000;
+      opacity: 0;
+  }
+  .claw-1 { top: 5%; left: 30%; transform: rotate(20deg); animation: claw 0.3s 0s forwards; }
+  .claw-2 { top: 10%; left: 50%; transform: rotate(20deg); animation: claw 0.3s 0.1s forwards; }
+  .claw-3 { top: 5%; left: 70%; transform: rotate(20deg); animation: claw 0.3s 0.2s forwards; }
+  
+  @keyframes claw {
+      0% { transform: rotate(20deg) scaleY(0); opacity: 1; }
+      50% { transform: rotate(20deg) scaleY(1.2); opacity: 1; }
+      100% { transform: rotate(20deg) scaleY(1); opacity: 0; }
+  }
+
+  /* --- SLIDE-OUT GLOSSARY TAB BUTTON --- */
+  #glossary-tab-btn {
+      position: fixed;
+      right: 0;
+      top: 45%;
+      transform: translateY(-50%);
+      background: linear-gradient(135deg, #d4af37 0%, #aa7c11 50%, #ffd700 100%);
+      color: #3a2500;
+      font-weight: 900;
+      font-size: 13px;
+      padding: 14px 10px;
+      border: 2px solid #fff;
+      border-right: none;
+      border-radius: 12px 0 0 12px;
+      cursor: pointer;
+      box-shadow: -4px 0 16px rgba(170, 124, 17, 0.45);
+      z-index: 2500;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      letter-spacing: 2px;
+      transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      user-select: none;
+  }
+  #glossary-tab-btn:hover {
+      background: linear-gradient(135deg, #ffe066 0%, #d4af37 50%, #ffd700 100%);
+      transform: translateY(-50%) translateX(-4px);
+      box-shadow: -6px 0 22px rgba(212, 175, 55, 0.7);
+      color: #1a1000;
+  }
+
+  /* --- PANNING ACCORDION CAROUSEL MODAL --- */
+  #carousel-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(14, 10, 4, 0.9);
+      backdrop-filter: blur(6px);
+      z-index: 3500;
+      align-items: center;
+      justify-content: flex-start;
+      flex-direction: column;
+      user-select: none;
+      overflow: hidden; /* Hide scrollbars entirely */
+  }
+  .carousel-close-x {
+      position: absolute;
+      top: 24px;
+      right: 30px;
+      background: rgba(212, 175, 55, 0.2);
+      border: 1.5px solid #d4af37;
+      color: #f7d774;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      z-index: 1000;
+  }
+  .carousel-close-x:hover {
+      background: #d4af37;
+      color: #1a1000;
+      transform: scale(1.1);
+  }
+
+  /* The Container that tracks mouse movement */
+  #glossary-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+  }
+
+  /* The actual moving track containing the fanned cards */
+  .glossary-track {
+      display: flex;
+      align-items: center;
+      padding: 0 20vw; /* Padding to let the user pan to the very ends */
+      width: max-content;
+      will-change: transform;
+  }
+  
+  /* Overlapping Accordion Cards */
+  .glossary-card-wrapper {
+      position: relative;
+      flex-shrink: 0;
+      width: 250px;
+      height: 360px;
+      margin-left: -140px; /* Deep overlap for accordion effect */
+      transition: margin 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transform-origin: bottom center;
+      transform: rotate(var(--base-rot, 0deg));
+      cursor: pointer;
+  }
+  .glossary-card-wrapper:first-child {
+      margin-left: 0;
+  }
+  
+  /* The Spread Hover Effect */
+  .glossary-card-wrapper:hover {
+      transform: translateY(-40px) scale(1.15) rotate(0deg) !important;
+      margin-right: 150px; /* Pushes the next cards away to reveal this one */
+      z-index: 100 !important;
+  }
+
+  /* 3D Inner Card */
+  .carousel-card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      border-radius: 18px;
+      box-shadow: -10px 15px 30px rgba(0, 0, 0, 0.8); /* Strong shadow for depth */
+  }
+  .carousel-card-inner.is-flipped {
+      transform: rotateY(180deg);
+  }
+  .carousel-card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 18px;
+      box-sizing: border-box;
+      padding: 16px;
+      border: 3.5px solid #d4af37;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+  }
+
+  /* Gold Front Face */
+  .carousel-face-front {
+      background: linear-gradient(145deg, #fff7dc 0%, #f6df95 38%, #dfb23e 74%, #ba8b1c 100%);
+      color: #2b1c00;
+      text-align: center;
+  }
+  .carousel-face-front img {
+      max-width: 135px;
+      max-height: 135px;
+      object-fit: contain;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 14px;
+      padding: 8px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+      margin-bottom: 12px;
+  }
+  .carousel-face-front h2 {
+      font-size: 1.3rem;
+      margin: 2px 0 6px 0;
+      color: #241700;
+  }
+  .carousel-badge {
+      display: inline-block;
+      background: #2b1c00;
+      color: #f7d774;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+  }
+  .carousel-tap-hint {
+      margin-top: auto;
+      font-size: 10px;
+      font-weight: 700;
+      color: #634608;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      animation: pulse 1.8s infinite;
+  }
+
+  /* Back Face (Rules) */
+  .carousel-face-back {
+      background: linear-gradient(165deg, #282012 0%, #161108 100%);
+      color: #fff;
+      transform: rotateY(180deg);
+      border-color: #ffd700;
+      text-align: left;
+      justify-content: flex-start;
+      overflow-y: auto;
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.85);
+  }
+  .carousel-back-header {
+      width: 100%;
+      border-bottom: 2px solid #d4af37;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+  }
+  .carousel-back-header h2 {
+      color: #ffd700;
+      font-size: 1.15rem;
+      margin: 0;
+  }
+  .carousel-back-header span {
+      color: #c9b482;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-top: 4px;
+  }
+  .carousel-back-stats {
+      background: rgba(212, 175, 55, 0.16);
+      border-left: 3px solid #ffd700;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #fff;
+      margin-bottom: 12px;
+      width: 100%;
+      box-sizing: border-box;
+  }
+  .carousel-back-stats b { color: #ffd700; }
+  .carousel-back-body {
+      font-size: 12px;
+      line-height: 1.45;
+      color: #f3ebd9;
+      width: 100%;
+  }
+
+</style>
+</head>
+<body>
+
+<div id="custom-tooltip" class="custom-tooltip"></div>
+
+<!-- GLOSSARY RIGHT-SIDE TAB -->
+<div id="glossary-tab-btn" title="Open Card Library">📖 CARDS</div>
+
+<!-- MOUSE-PANNING ACCORDION CAROUSEL MODAL -->
+<div id="carousel-modal">
+    <button class="carousel-close-x" id="carousel-close-btn" title="Close Library">&times;</button>
+    <div style="text-align: center; margin-top: 30px; z-index: 50;">
+        <h2 style="color: #ffd700; text-shadow: 0 2px 8px #000; font-size: 2.2rem; margin: 0 0 5px 0;">Card Library</h2>
+        <p style="color: #c9b482; font-size: 14px; margin: 0; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;">Move mouse left/right to pan &bull; Click to flip</p>
+    </div>
+    
+    <div id="glossary-container">
+        <div class="glossary-track" id="glossary-track">
+            <!-- Cards will be dynamically injected here by JS -->
+        </div>
+    </div>
+</div>
+
+<div id="splash">
+    <img src="images/logo-corner-critters.png" alt="Corner Critters Logo" class="splash-title" style="max-width: 600px; width: 90%; height: auto;">
+    <div class="splash-subtitle">A strategy card game Prototype</div>
+    <button class="action-btn" id="start-game-btn">Start Game</button>
+</div>
+
+<div id="game-over-screen">
+    <h1 class="game-over-title" id="go-title">Game Over</h1>
+    <button class="action-btn" style="background: #0055cc;" id="restart-btn">Play Again</button>
+</div>
+
+<!-- ATTACK POPUP CONTAINER -->
+<div id="attacker-popup"></div>
+
+<div id="gy-overlay"></div>
+<div id="gy-modal">
+    <h3>Select a card to Fetch:</h3>
+    <div class="hand-container" id="gy-cards"></div>
+    <button class="sys-btn" onclick="document.getElementById('gy-modal').style.display='none'; document.getElementById('gy-overlay').style.display='none'; resetActionState(); updateUI();">Cancel Fetch</button>
+</div>
+
+<!-- TITLE ROW -->
+<div class="title-row">
+    <div class="difficulty-panel" id="difficulty-panel">
+        <label>AI Difficulty</label>
+        <div class="difficulty-toggle" aria-label="AI difficulty selector">
+            <button type="button" class="difficulty-option active" id="difficulty-normal">Normal</button>
+            <button type="button" class="difficulty-option" id="difficulty-hard">Hard</button>
+        </div>
+    </div>
+
+    <img src="images/logo-corner-critters.png" id="main-title" class="main-game-title" alt="Corner Critters Logo" style="max-width: 260px; width: 80%; height: auto;">
+    <button type="button" class="new-game-btn" id="new-game-btn">New Game</button>
+</div>
+
+<div class="game-wrapper" id="main-wrapper">
+  
+  <!-- Left Side: Opponent Score -->
+  <div class="score-display" id="opp-score-display-wrapper">
+    <h3>Opponent HP</h3>
+    <div class="large-score" id="opp-score-display">12</div>
+  </div>
+
+  <!-- Center: Game Board -->
+  <div class="game-board">
+    <h2 id="opp-hand-title">Opponent's Hand (0 Cards) - Deck: 60</h2>
+    <div class="hand-container" id="opponent-hand" data-tooltip="Hidden cards belonging to the opponent."></div>
+
+    <div id="opp-title" class="face-target" data-tooltip="Direct Face Attack: Must clear opponent's grid first!">⚔️ Direct Attack ⚔️</div>
+    
+    <div class="grid-2x2" id="opponent-grid">
+      <div class="card-slot" data-slot="0">Empty</div>
+      <div class="card-slot" data-slot="1">Empty</div>
+      <div class="card-slot" data-slot="2">Empty</div>
+      <div class="card-slot" data-slot="3">Empty</div>
+    </div>
+
+    <hr class="grid-divider">
+
+    <div class="grid-2x2" id="player-grid">
+      <div class="card-slot" data-slot="0">Empty</div>
+      <div class="card-slot" data-slot="1">Empty</div>
+      <div class="card-slot" data-slot="2">Empty</div>
+      <div class="card-slot" data-slot="3">Empty</div>
+    </div>
+
+    <div class="action-row">
+      <div class="card-slot graveyard" id="graveyard" data-tooltip="Discard Pile. Use Bulldog Retriever to fetch cards from here!">Graveyard<br>(0 Cards)</div>
+      <div>
+        <button class="sys-btn" id="draw-btn" data-tooltip="Draw 1 card per turn.">Draw Card (60)</button>
+        <button class="sys-btn" id="end-turn-btn" style="background-color: #0055cc;">End Turn</button>
+      </div>
+    </div>
+
+    <h2>Your Hand</h2>
+    <div id="burn-indicator" class="burn-indicator">PAY THE COST: Select <span id="burn-count">1</span> Card(s) to Burn</div>
+    <div class="hand-container" id="player-hand"></div>
+
+    <div id="console">System booted...<br>> TRAMPLE RULE IS ACTIVE: Excess damage spills over to the opponent's Face!</div>
+  </div>
+
+  <!-- Right Side: Player Score & Legend Container -->
+  <div class="right-container">
+      <div class="score-display" id="player-score-display-wrapper">
+        <h3>Your HP</h3>
+        <div class="large-score" id="player-score-display">12</div>
+      </div>
+      
+      <div class="legend-panel">
+          <h3>Card Legend</h3>
+          <div class="legend-item">
+              <div class="legend-color color-dino"></div>
+              <span><b>Dino:</b> Attack. Excess damage <b>Tramples</b> to Face!</span>
+          </div>
+          <div class="legend-item">
+              <div class="legend-color color-battle"></div>
+              <span><b>Battle:</b> Aggressive Shark, 1 HP / 1 DMG. Waits 1 turn, Burn 1 to attack.</span>
+          </div>
+          <div class="legend-item">
+              <div class="legend-color color-produce"></div>
+              <span><b>Produce:</b> Defend</span>
+          </div>
+          <div class="legend-item">
+              <div class="legend-color color-safari"></div>
+              <span><b>Safari:</b> Grid: Taunt (Meat Shield) | Hand: Burn 1 to Stampede.</span>
+          </div>
+          <div class="legend-item">
+              <div class="legend-color color-pet"></div>
+              <span><b>Bulldog Retriever:</b> Fetch a card from the graveyard</span>
+          </div>
+          <div class="legend-item">
+              <div class="legend-color color-pet"></div>
+              <span><b>Bandit Raccoon:</b> Steal an opponent's card when ready</span>
+          </div>
+          <div class="burn-rule-box">
+              <b>The Burn Rule:</b> Actions like attacking, stealing, or fetching require you to <b>burn (discard) 1 extra card</b> from your hand. Defending is FREE.
+          </div>
+      </div>
+  </div>
+
+</div>
+
+<a href="https://www.etsy.com/shop/CornerCritters?ref=dashboard-header"><div class="etsy-banner">Find us on Etsy</div></a>
+
+<script>
+  // --- SYNTHESIZED WEB AUDIO ENGINE ---
+  let audioCtx = null;
+
+  function ensureAudio() {
+      if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+      }
+  }
+
+  const SFX = {
+      draw() {
+          ensureAudio();
+          if (!audioCtx) return;
+          const bufferSize = Math.floor(audioCtx.sampleRate * 0.12);
+          const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+          const noise = audioCtx.createBufferSource();
+          noise.buffer = buffer;
+          const filter = audioCtx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(2400, audioCtx.currentTime);
+          filter.Q.setValueAtTime(3.0, audioCtx.currentTime);
+          const gain = audioCtx.createGain();
+          const t = audioCtx.currentTime;
+          gain.gain.setValueAtTime(0.01, t);
+          gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.04, t + 0.05);
+          gain.gain.linearRampToValueAtTime(0.15, t + 0.07);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(audioCtx.destination);
+          noise.start(t);
+          noise.stop(t + 0.12);
+      },
+      place() {
+          ensureAudio();
+          if (!audioCtx) return;
+          const t = audioCtx.currentTime;
+          const frequencies = [880, 1320];
+          frequencies.forEach((freq, idx) => {
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(freq, t);
+              osc.frequency.exponentialRampToValueAtTime(freq * 0.85, t + 0.07);
+              const initialVol = idx === 0 ? 0.08 : 0.04;
+              gain.gain.setValueAtTime(initialVol, t);
+              gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              osc.start(t);
+              osc.stop(t + 0.07);
+          });
+      },
+      burn() {
+          ensureAudio();
+          if (!audioCtx) return;
+          const t = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const filter = audioCtx.createBiquadFilter();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(260, t);
+          osc.frequency.exponentialRampToValueAtTime(45, t + 0.35);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(800, t);
+          filter.frequency.exponentialRampToValueAtTime(80, t + 0.35);
+          gain.gain.setValueAtTime(0.22, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(audioCtx.destination);
+          const bufferSize = Math.floor(audioCtx.sampleRate * 0.3);
+          const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+          const noise = audioCtx.createBufferSource();
+          noise.buffer = buffer;
+          const noiseFilter = audioCtx.createBiquadFilter();
+          noiseFilter.type = 'lowpass';
+          noiseFilter.frequency.setValueAtTime(1200, t);
+          noiseFilter.frequency.exponentialRampToValueAtTime(150, t + 0.3);
+          const noiseGain = audioCtx.createGain();
+          noiseGain.gain.setValueAtTime(0.08, t);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+          noise.connect(noiseFilter);
+          noiseFilter.connect(noiseGain);
+          noiseGain.connect(audioCtx.destination);
+          osc.start(t);
+          osc.stop(t + 0.35);
+          noise.start(t);
+          noise.stop(t + 0.3);
+      },
+      hit() {
+          ensureAudio();
+          if (!audioCtx) return;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          const t = audioCtx.currentTime;
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(180, t);
+          osc.frequency.exponentialRampToValueAtTime(35, t + 0.22);
+          gain.gain.setValueAtTime(0.35, t);
+          gain.gain.exponentialRampToValueAtTime(0.01, t + 0.22);
+          osc.start(t);
+          osc.stop(t + 0.22);
+      },
+      win() {
+          ensureAudio();
+          if (!audioCtx) return;
+          const notes = [261.63, 329.63, 392.00, 523.25];
+          notes.forEach((freq, i) => {
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              const t = audioCtx.currentTime + (i * 0.12);
+              osc.type = 'triangle';
+              osc.frequency.setValueAtTime(freq, t);
+              gain.gain.setValueAtTime(0.2, t);
+              gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
+              osc.start(t);
+              osc.stop(t + 0.35);
+          });
+      },
+      lose() {
+          ensureAudio();
+          if (!audioCtx) return;
+          const notes = [310, 260, 210, 160];
+          notes.forEach((freq, i) => {
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              const t = audioCtx.currentTime + (i * 0.15);
+              osc.type = 'sawtooth';
+              osc.frequency.setValueAtTime(freq, t);
+              gain.gain.setValueAtTime(0.18, t);
+              gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+              osc.start(t);
+              osc.stop(t + 0.25);
+          });
+      },
+      flip() {
+          ensureAudio();
+          if (!audioCtx) return;
+          const t = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(340, t);
+          osc.frequency.exponentialRampToValueAtTime(680, t + 0.11);
+          gain.gain.setValueAtTime(0.07, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(t);
+          osc.stop(t + 0.11);
+      }
+  };
+
+  // --- CUSTOM CSS TOOLTIP LOGIC ---
+  const tooltip = document.getElementById('custom-tooltip');
+  document.addEventListener('mouseover', (e) => {
+      const target = e.target.closest('[data-tooltip]');
+      if (target) {
+          tooltip.innerHTML = target.getAttribute('data-tooltip');
+          tooltip.style.display = 'block';
+      }
+  });
+  document.addEventListener('mousemove', (e) => {
+      if (tooltip.style.display === 'block') {
+          let x = e.pageX + 15;
+          let y = e.pageY + 15;
+          if (x + 220 > window.innerWidth) x = e.pageX - 235;
+          tooltip.style.left = x + 'px';
+          tooltip.style.top = y + 'px';
+      }
+  });
+  document.addEventListener('mouseout', (e) => {
+      const target = e.target.closest('[data-tooltip]');
+      if (target) tooltip.style.display = 'none';
+  });
+
+  document.getElementById('start-game-btn').addEventListener('click', () => {
+      ensureAudio();
+      const splash = document.getElementById('splash');
+      const wrapper = document.getElementById('main-wrapper');
+      const mainTitle = document.getElementById('main-title');
+      
+      splash.style.transform = 'scale(1.2)';
+      splash.style.opacity = '0';
+      setTimeout(() => {
+          splash.style.display = 'none';
+          mainTitle.style.display = 'block';
+          wrapper.style.display = 'flex';
+      }, 600);
+  });
+
+  document.getElementById('restart-btn').addEventListener('click', () => { location.reload(); });
+  document.getElementById('new-game-btn').addEventListener('click', () => { location.reload(); });
+
+  const log = (msg) => {
+    const c = document.getElementById('console');
+    c.innerHTML += `<br>> ${msg}`;
+    c.scrollTop = c.scrollHeight;
+  };
+
+  let difficultyMode = 'normal';
+
+  const getDifficultyMode = () => difficultyMode;
+
+  const updateDifficultyDisplay = () => {
+      const normalBtn = document.getElementById('difficulty-normal');
+      const hardBtn = document.getElementById('difficulty-hard');
+      const isHard = difficultyMode === 'hard';
+      normalBtn.classList.toggle('active', !isHard);
+      hardBtn.classList.toggle('active', isHard);
+  };
+
+  const setDifficultyMode = (nextMode) => {
+      difficultyMode = nextMode;
+      updateDifficultyDisplay();
+      log(`AI difficulty set to ${difficultyMode === 'hard' ? 'Hard' : 'Normal'}.`);
+  };
+
+  document.getElementById('difficulty-normal').addEventListener('click', () => { setDifficultyMode('normal'); });
+  document.getElementById('difficulty-hard').addEventListener('click', () => { setDifficultyMode('hard'); });
+
+  const renderCardImage = (card) => {
+      if (!card) return '';
+      if (card.name === 'Sneaky T-Rex') return `<img src="images/sneaky-t-rex.png" alt="Sneaky T-Rex" class="card-art">`;
+      if (card.name === 'Stampeding Elephant') return `<img src="images/stampeding-elephant.png" alt="Stampeding Elephant" class="card-art">`;
+      if (card.name === 'Charging Gorilla') return `<img src="images/charging-gorilla.png" alt="Charging Gorilla" class="card-art">`;
+      if (card.name === 'Tough Tomato') return `<img src="images/tough-tomato.png" alt="Tough Tomato" class="card-art">`;
+      if (card.name === 'Basic Blueberry') return `<img src="images/basic-blueberry.png" alt="Basic Blueberry" class="card-art">`;
+      if (card.name === 'Bandit Raccoon') return `<img src="images/bandit-raccoon.png" alt="Bandit Raccoon" class="card-art">`;
+      if (card.name === 'Heavy Pumpkin') return `<img src="images/heavy-pumpkin.png" alt="Heavy Pumpkin" class="card-art">`;
+      if (card.name === 'Smashing Stego') return `<img src="images/smashing-stegosaurus.png" alt="Smashing Stego" class="card-art">`;
+      if (card.name === 'Treading Triceratops') return `<img src="images/treading-triceratops.png" alt="Treading Triceratops" class="card-art">`;
+      if (card.name === 'Armored Walrus') return `<img src="images/armored-walrus.png" alt="Armored Walrus" class="card-art">`;
+      if (card.name === 'Bulldog Retriever') return `<img src="images/bulldog-retriever.png" alt="Bulldog Retriever" class="card-art">`;
+      if (card.name === 'Aggressive Shark') return `<img src="images/aggressive-shark.png" alt="Aggressive Shark" class="card-art">`;
+      return '';
+  };
+
+  const triggerDamageEffects = (targetEl, attackerCard) => {
+      SFX.hit();
+      document.body.classList.add('screen-shake');
+      
+      if (targetEl) {
+          targetEl.classList.add('anim-damage');
+          const slashContainer = document.createElement('div');
+          slashContainer.className = 'slash-fx';
+          slashContainer.innerHTML = `
+              <div class="claw-mark claw-1"></div>
+              <div class="claw-mark claw-2"></div>
+              <div class="claw-mark claw-3"></div>
+          `;
+          targetEl.appendChild(slashContainer);
+          setTimeout(() => { slashContainer.remove(); }, 600);
+      }
+
+      if (attackerCard) {
+          const popup = document.getElementById('attacker-popup');
+          popup.innerHTML = `
+              <div class="card-slot filled-${attackerCard.faction.toLowerCase()}" style="width: 160px; height: 210px; font-size: 18px; box-shadow: 0 0 30px #cc0000; border-width: 5px;">
+                  ${renderCardImage(attackerCard)}
+                  <div class="card-name-label">${attackerCard.name}</div>
+                  <br><small>(${attackerCard.faction} | ${attackerCard.dmg} DMG)</small>
+              </div>`;
+          popup.style.display = 'block';
+          popup.classList.remove('anim-popup');
+          void popup.offsetWidth; 
+          popup.classList.add('anim-popup');
+          setTimeout(() => { popup.style.display = 'none'; }, 1200);
+      }
+
+      setTimeout(() => {
+          document.body.classList.remove('screen-shake');
+          if (targetEl) targetEl.classList.remove('anim-damage');
+      }, 500);
+  };
+
+  const triggerTheftEffects = (sourceEl, destinationEl, stolenCard) => {
+      SFX.burn();
+      if (sourceEl) {
+          sourceEl.classList.add('anim-stolen');
+          const banner = document.createElement('div');
+          banner.className = 'stolen-banner';
+          banner.textContent = 'Stolen';
+          sourceEl.appendChild(banner);
+          setTimeout(() => banner.remove(), 800);
+          setTimeout(() => sourceEl.classList.remove('anim-stolen'), 900);
+      }
+      if (destinationEl) {
+          destinationEl.classList.add('anim-stolen');
+          const banner = document.createElement('div');
+          banner.className = 'stolen-banner';
+          banner.textContent = 'Stolen';
+          destinationEl.appendChild(banner);
+          setTimeout(() => banner.remove(), 800);
+          setTimeout(() => destinationEl.classList.remove('anim-stolen'), 900);
+      }
+      const popup = document.getElementById('attacker-popup');
+      popup.innerHTML = `
+          <div class="card-slot filled-${stolenCard.faction.toLowerCase()}" style="width: 180px; height: 220px; font-size: 18px; box-shadow: 0 0 30px rgba(255, 196, 0, 0.9); border-width: 5px; position: relative;">
+              <div style="position:absolute; top: 8px; left: 50%; transform: translateX(-50%); background: rgba(255,196,0,0.9); color: #111; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase;">Stolen</div>
+              ${renderCardImage(stolenCard)}
+              <div class="card-name-label">${stolenCard.name}</div>
+              <br><small>(${stolenCard.faction})</small>
+          </div>`;
+      popup.style.display = 'block';
+      popup.classList.remove('anim-popup');
+      void popup.offsetWidth;
+      popup.classList.add('anim-popup');
+      setTimeout(() => { popup.style.display = 'none'; }, 1200);
+  };
+
+  const hasTaunt = (targetGrid) => {
+      return targetGrid.some(card => card && card.faction === "Safari");
+  };
+
+  const canFetchCard = (card) => {
+      return card && (card.faction === "Dino" || card.faction === "Produce" || card.faction === "Safari" || card.faction === "Battle");
+  };
+
+  const getAiTargetChoice = (targetGrid, attackerDmg) => {
+      const candidates = targetGrid
+          .map((card, idx) => card ? { card, idx } : null)
+          .filter(Boolean);
+
+      if (!candidates.length) return null;
+
+      const killCandidates = candidates.filter(({ card }) => card.hp <= attackerDmg);
+      if (killCandidates.length) {
+          return killCandidates.sort((a, b) => {
+              if (a.card.faction === 'Safari' && b.card.faction !== 'Safari') return -1;
+              if (a.card.faction !== 'Safari' && b.card.faction === 'Safari') return 1;
+              return a.card.hp - b.card.hp;
+          })[0].idx;
+      }
+
+      const safariCard = candidates.find(({ card }) => card.faction === 'Safari');
+      if (safariCard) return safariCard.idx;
+
+      return candidates.sort((a, b) => b.card.hp - a.card.hp)[0].idx;
+  };
+
+  const shuffleDeck = (array) => {
+      for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+      }
+  };
+
+  class Card {
+      constructor(name, faction, statValue) {
+          this.name = name;
+          this.faction = faction;
+          this.turnsOnGrid = 0; 
+          this.hasAttacked = false;
+          
+          if (faction === "Dino") {
+              this.hp = 0;
+          } else if (faction === "Produce" || faction === "Safari" || faction === "Battle" || name === "Bandit Raccoon") {
+              this.hp = statValue;
+          } else {
+              this.hp = 1;
+          }
+          this.dmg = (faction === "Dino" || faction === "Battle") ? statValue : 0;
+          
+          if (name === "Aggressive Shark") {
+              this.hp = 1;
+              this.dmg = 1;
+          }
+      }
+      getDesc() {
+          if (this.faction === "Dino") return `<b>Dino:</b> ${this.dmg} DMG. Excess damage TRAMPLES to the opponent's face!`;
+          if (this.faction === "Battle") return `<b>Battle:</b> ${this.hp} HP / ${this.dmg} DMG. Waits 1 turn, then Burn 1 to attack!`;
+          if (this.faction === "Produce") return `<b>Defense:</b> ${this.hp} HP Frontline wall. Protects your face.`;
+          if (this.faction === "Safari") return `<b>Grid:</b> ${this.hp} HP TAUNT! Forces attacks to target this.<br><b>Hand:</b> Burn 1 to Stampede.`;
+          if (this.name === "Bandit Raccoon") return `<b>Grid:</b> 2 HP. Survives 1 turn? Burn 1 to sacrifice Raccoon and STEAL an enemy card!`;
+          if (this.faction === "Pet") return `<b>Hand (Utility):</b> Burn 1 to Fetch a perished card from the graveyard.`;
+          return "Empty slot";
+      }
+  }
+
+  class Player {
+      constructor(name) {
+          this.name = name;
+          this.grid = [null, null, null, null];
+          this.hand = [];
+          this.health = 12;
+          this.discardPile = [];
+          this.deck = []; 
+      }
+  }
+
+  const player = new Player("Player");
+  const opponent = new Player("Opponent");
+  
+  let selectedHandIndex = null;
+  let currentAction = null; 
+  let actionTargetSlot = null; 
+  let fetchTargetIndex = null;
+  let burnsRequired = 0;
+  let currentBurns = [];
+  let isAnimating = false;
+  let raccoonSlot = null; 
+  let sharkSlot = null; 
+  
+  let currentTurn = 'player';
+  let hasDrawnThisTurn = false;
+
+  const generateDeck = () => {
+      let newDeck = [];
+      const addCopies = (name, faction, stat, count) => {
+          for(let i = 0; i < count; i++) newDeck.push(new Card(name, faction, stat));
+      };
+      
+      addCopies("Sneaky T-Rex", "Dino", 2, 8);
+      addCopies("Smashing Stego", "Dino", 3, 7);
+      addCopies("Treading Triceratops", "Dino", 4, 8);
+      addCopies("Aggressive Shark", "Battle", 1, 6);
+
+      addCopies("Basic Blueberry", "Produce", 1, 3);
+      addCopies("Tough Tomato", "Produce", 2, 4);
+      addCopies("Heavy Pumpkin", "Produce", 3, 3);
+
+      addCopies("Stampeding Elephant", "Safari", 1, 4);
+      addCopies("Charging Gorilla", "Safari", 2, 4);
+      addCopies("Armored Walrus", "Safari", 3, 3);
+
+      addCopies("Bulldog Retriever", "Pet", 0, 5); 
+      addCopies("Bandit Raccoon", "Pet", 2, 5); 
+
+      shuffleDeck(newDeck);
+      return newDeck;
+  };
+
+  player.deck = generateDeck();
+  opponent.deck = generateDeck();
+
+  for(let i = 0; i < 5; i++) {
+      player.hand.push(player.deck.pop());
+      opponent.hand.push(opponent.deck.pop());
+  }
+
+  const resetActionState = () => {
+      selectedHandIndex = null;
+      currentAction = null;
+      actionTargetSlot = null;
+      fetchTargetIndex = null;
+      burnsRequired = 0;
+      currentBurns = [];
+      raccoonSlot = null;
+      sharkSlot = null;
+  };
+
+  const checkGameOver = () => {
+      if (player.health <= 0 || opponent.health <= 0) {
+          isAnimating = true; 
+          const goScreen = document.getElementById('game-over-screen');
+          const goTitle = document.getElementById('go-title');
+          
+          if (player.health <= 0 && opponent.health <= 0) {
+              goTitle.innerText = "IT'S A DRAW!";
+              goTitle.style.color = "#fff";
+          } else if (opponent.health <= 0) {
+              SFX.win();
+              goTitle.innerText = "YOU WIN!";
+              goTitle.style.color = "#4CAF50";
+              goTitle.style.textShadow = "0 0 20px #4CAF50";
+          } else {
+              SFX.lose();
+              goTitle.innerText = "YOU LOSE!";
+              goTitle.style.color = "#F44336";
+              goTitle.style.textShadow = "0 0 20px #F44336";
+          }
+          
+          setTimeout(() => { goScreen.style.display = 'flex'; }, 800);
+          return true;
+      }
+      return false;
+  };
+
+  const updateTargetHighlights = () => {
+      document.querySelectorAll('.valid-target').forEach(el => el.classList.remove('valid-target'));
+
+      if (currentAction === 'raccoon-target' || currentAction === 'shark-target') {
+          const isGridEmpty = !opponent.grid.some(c => c !== null);
+          if (currentAction === 'shark-target' && isGridEmpty) {
+              document.getElementById('opp-title').classList.add('valid-target');
+          }
+          
+          const hasTauntCard = hasTaunt(opponent.grid);
+          Array.from(document.getElementById('opponent-grid').children).forEach((slot, idx) => {
+              if (opponent.grid[idx]) {
+                  if (!hasTauntCard || opponent.grid[idx].faction === 'Safari') {
+                      slot.classList.add('valid-target');
+                  }
+              }
+          });
+          return;
+      }
+
+      if (selectedHandIndex === null) return;
+      const actionCard = player.hand[selectedHandIndex];
+
+      if (actionCard.faction === "Dino") {
+          const isGridEmpty = !opponent.grid.some(c => c !== null);
+          if (isGridEmpty) {
+              document.getElementById('opp-title').classList.add('valid-target');
+          } else {
+              const hasTauntCard = hasTaunt(opponent.grid);
+              Array.from(document.getElementById('opponent-grid').children).forEach((slot, idx) => {
+                  if (opponent.grid[idx]) {
+                      if (!hasTauntCard || opponent.grid[idx].faction === 'Safari') {
+                          slot.classList.add('valid-target');
+                      }
+                  }
+              });
+          }
+      }
+
+      if (actionCard.faction === "Produce" || actionCard.faction === "Safari" || actionCard.faction === "Battle" || actionCard.name === "Bandit Raccoon") {
+          Array.from(document.getElementById('player-grid').children).forEach((slot, idx) => {
+              if (!player.grid[idx]) slot.classList.add('valid-target');
+          });
+      }
+
+      if (actionCard.faction === "Safari" && opponent.hand.length > 0) {
+          document.getElementById('opponent-hand').classList.add('valid-target');
+      }
+
+      if (actionCard.name === "Bulldog Retriever" && player.discardPile.some(c => canFetchCard(c))) {
+          document.getElementById('graveyard').classList.add('valid-target');
+      }
+  };
+
+  const updateUI = (newSlotPlaced = null, justDrawn = false) => {
+    document.getElementById('opp-score-display').innerText = opponent.health;
+    document.getElementById('player-score-display').innerText = player.health;
+
+    if (checkGameOver()) return;
+
+    const gyCount = player.discardPile.length;
+    const gyEl = document.getElementById('graveyard');
+    gyEl.innerHTML = `Graveyard<br>(${gyCount} Cards)`;
+    gyEl.className = 'card-slot graveyard';
+    if(gyCount > 0 && gyCount <= 3) gyEl.classList.add('gy-stack-1');
+    else if(gyCount > 3 && gyCount <= 6) gyEl.classList.add('gy-stack-2');
+    else if(gyCount > 6) gyEl.classList.add('gy-stack-3');
+
+    document.getElementById('opp-hand-title').innerText = `Opponent's Hand (${opponent.hand.length} Cards) - Deck: ${opponent.deck.length}`;
+    document.getElementById('draw-btn').innerText = `Draw Card (${player.deck.length})`;
+
+    const oppHandEl = document.getElementById('opponent-hand');
+    oppHandEl.innerHTML = '';
+    opponent.hand.forEach((_, idx) => {
+        const cardDiv = document.createElement('div');
+        cardDiv.innerHTML = `?<br><small>(Hidden)</small>`;
+        cardDiv.className = `card-slot hand-card`;
+        cardDiv.style.backgroundColor = '#ddd';
+        if (currentTurn === 'opponent' && justDrawn && idx === opponent.hand.length - 1) {
+            cardDiv.classList.add('anim-draw');
+        }
+        oppHandEl.appendChild(cardDiv);
+    });
+
+    ['player', 'opponent'].forEach(p => {
+        const user = p === 'player' ? player : opponent;
+        const gridEl = document.getElementById(`${p}-grid`);
+        Array.from(gridEl.children).forEach((slot, idx) => {
+            const card = user.grid[idx];
+            const hadDamageFX = slot.classList.contains('anim-damage');
+            
+            slot.className = "card-slot"; 
+            if (hadDamageFX) slot.classList.add('anim-damage');
+            
+            if (card) {
+                let extraText = "";
+                if (card.name === "Bandit Raccoon" && card.turnsOnGrid > 0) extraText = "<br><span style='color:green;'>(Ready!)</span>";
+                if (card.faction === "Battle" && card.turnsOnGrid > 0 && !card.hasAttacked) extraText = "<br><span style='color:green;'>(Ready!)</span>";
+
+                const displayStat = (card.faction === "Dino" || card.faction === "Battle") ? `${card.hp}HP/${card.dmg}DMG` : `${card.hp} HP`;
+                if (card.faction === "Dino") slot.innerHTML = `${renderCardImage(card)}<div class="card-name-label">${card.name}</div><small>(${card.dmg} DMG)</small>${extraText}`;
+                else slot.innerHTML = `${renderCardImage(card)}<div class="card-name-label">${card.name}</div><small>(${displayStat})</small>${extraText}`;
+                
+                slot.classList.add(`filled-${card.faction.toLowerCase()}`);
+                slot.setAttribute('data-tooltip', card.getDesc());
+                if (p === 'player' && idx.toString() === newSlotPlaced) slot.classList.add('anim-drop');
+            } else {
+                slot.innerHTML = "Empty";
+                slot.removeAttribute('data-tooltip');
+            }
+
+            if (p === 'player') {
+                if (raccoonSlot === idx.toString() || sharkSlot === idx.toString()) slot.classList.add('action-highlight');
+            }
+        });
+    });
+
+    const handEl = document.getElementById('player-hand');
+    handEl.innerHTML = '';
+    player.hand.forEach((card, idx) => {
+        const cardDiv = document.createElement('div');
+        
+        let statsInfo = "";
+        if (card.faction === "Dino") statsInfo = `${card.dmg} DMG`;
+        else if (card.faction === "Produce" || card.faction === "Safari" || card.name === "Bandit Raccoon") statsInfo = `${card.hp} HP`;
+        else if (card.faction === "Battle") statsInfo = `${card.hp}HP/${card.dmg}DMG`;
+        else statsInfo = `Utility`;
+        
+        cardDiv.innerHTML = `${renderCardImage(card)}<div class="card-name-label">${card.name}</div><small>(${card.faction} | ${statsInfo})</small>`;
+        cardDiv.className = `card-slot hand-card filled-${card.faction.toLowerCase()}`;
+        cardDiv.setAttribute('data-tooltip', card.getDesc());
+        
+        if (currentTurn === 'player' && justDrawn && idx === player.hand.length - 1) cardDiv.classList.add('anim-draw');
+
+        if (idx === selectedHandIndex) {
+            cardDiv.classList.add(currentAction !== null ? 'burn-mode' : 'selected');
+        } else if (currentBurns.includes(idx)) {
+            cardDiv.classList.add('burn-mode');
+        }
+        
+        cardDiv.onclick = () => {
+            if (isAnimating || currentTurn !== 'player') return;
+            if (currentAction !== null) {
+                if (idx === selectedHandIndex || currentBurns.includes(idx)) {
+                    log("Action cancelled.");
+                    resetActionState();
+                    updateUI();
+                } else {
+                    currentBurns.push(idx);
+                    updateUI(); 
+                    if (currentBurns.length === burnsRequired) executeActionWithAnimation();
+                    else log(`Select ${burnsRequired - currentBurns.length} more card(s) to burn...`);
+                }
+            } else {
+                selectedHandIndex = idx;
+                log(`Selected ${card.name} from hand.`);
+                updateUI();
+            }
+        };
+        handEl.appendChild(cardDiv);
+    });
+
+    const burnIndicator = document.getElementById('burn-indicator');
+    if (burnsRequired > 0 && currentBurns.length < burnsRequired) {
+        document.getElementById('burn-count').innerText = burnsRequired - currentBurns.length;
+        burnIndicator.style.display = 'block';
+    } else {
+        burnIndicator.style.display = 'none';
+    }
+
+    document.getElementById('draw-btn').disabled = (player.deck.length === 0 || hasDrawnThisTurn || currentTurn !== 'player');
+    document.getElementById('end-turn-btn').disabled = (currentTurn !== 'player');
+
+    updateTargetHighlights();
+  };
+
+  const runOpponentTurn = () => {
+      log("--- OPPONENT'S TURN ---");
+      isAnimating = true;
+      opponent.grid.forEach(c => { 
+          if(c) {
+              c.turnsOnGrid++; 
+              c.hasAttacked = false;
+          } 
+      });
+      const hardMode = getDifficultyMode() === 'hard';
+      
+      setTimeout(() => {
+          if (opponent.deck.length > 0) {
+              SFX.draw();
+              opponent.hand.push(opponent.deck.pop());
+              log(`Opponent drew a card. (${opponent.deck.length} left)`);
+              updateUI(null, true);
+          } else {
+              log("Opponent's deck is out of cards!");
+          }
+
+          setTimeout(() => {
+              let actionTaken = false;
+
+              if (hardMode) {
+                  const readyRaccoonIndex = opponent.grid.findIndex(c => c && c.name === "Bandit Raccoon" && c.turnsOnGrid > 0);
+                  if (readyRaccoonIndex !== -1 && opponent.hand.length >= 1) {
+                      const validTargets = player.grid
+                          .map((card, idx) => ({ card, idx }))
+                          .filter(entry => entry.card && (!hasTaunt(player.grid) || entry.card.faction === 'Safari'));
+
+                      if (validTargets.length) {
+                          const target = validTargets.sort((a, b) => {
+                              if (a.card.faction === 'Safari' && b.card.faction !== 'Safari') return -1;
+                              if (a.card.faction !== 'Safari' && b.card.faction === 'Safari') return 1;
+                              return b.card.hp - a.card.hp;
+                          })[0];
+
+                          let burnCard = opponent.hand.splice(0, 1)[0];
+                          opponent.discardPile.push(burnCard);
+
+                          const stolenCard = player.grid[target.idx];
+                          player.grid[target.idx] = null;
+                          opponent.discardPile.push(opponent.grid[readyRaccoonIndex]);
+                          opponent.grid[readyRaccoonIndex] = stolenCard;
+                          stolenCard.turnsOnGrid = 0;
+                          
+                          triggerTheftEffects(
+                              document.getElementById('player-grid').children[target.idx],
+                              document.getElementById('opponent-grid').children[readyRaccoonIndex],
+                              stolenCard
+                          );
+                          log(`Hard AI burned 1 to use Bandit Raccoon and steal ${stolenCard.name}!`);
+                          actionTaken = true;
+                      }
+                  }
+              }
+              
+              if (!actionTaken) {
+                  const sharkIdx = opponent.grid.findIndex(c => c && c.faction === "Battle" && c.turnsOnGrid > 0 && !c.hasAttacked);
+                  if (sharkIdx !== -1 && opponent.hand.length >= 1) {
+                      let shark = opponent.grid[sharkIdx];
+                      let isGridEmpty = !player.grid.some(c => c !== null);
+                      
+                      if (isGridEmpty) {
+                           let burn = opponent.hand.splice(0, 1)[0];
+                           opponent.discardPile.push(burn);
+                           player.health -= shark.dmg;
+                           shark.hasAttacked = true;
+                           triggerDamageEffects(document.getElementById('player-score-display-wrapper'), shark);
+                           log(`Opponent burned 1 card to attack Face with Shark for ${shark.dmg} DMG!`);
+                           actionTaken = true;
+                      } else {
+                           let targetIdx = getAiTargetChoice(player.grid, shark.dmg);
+                           if (targetIdx !== null) {
+                               let burn = opponent.hand.splice(0, 1)[0];
+                               opponent.discardPile.push(burn);
+                               let targetCard = player.grid[targetIdx];
+                               
+                               let excessDamage = shark.dmg - targetCard.hp;
+                               targetCard.hp -= shark.dmg;
+                               shark.hasAttacked = true;
+                               triggerDamageEffects(document.getElementById('player-grid').children[targetIdx], shark);
+                               log(`Opponent burned 1 card to attack ${targetCard.name} with Shark for ${shark.dmg} DMG.`);
+                               
+                               if (targetCard.hp <= 0) {
+                                   player.grid[targetIdx] = null;
+                                   log(`Opponent wrecked your ${targetCard.name}!`);
+                                   if (excessDamage > 0) {
+                                       player.health -= excessDamage;
+                                       triggerDamageEffects(document.getElementById('player-score-display-wrapper'), shark);
+                                       log(`Trample! Shark dealt ${excessDamage} excess damage to your face!`);
+                                   }
+                               }
+                               actionTaken = true;
+                           }
+                      }
+                  }
+              }
+
+              if (!actionTaken && hardMode) {
+                  const petIndex = opponent.hand.findIndex(c => c && c.faction === 'Pet');
+                  if (petIndex !== -1 && opponent.discardPile.length > 0 && opponent.hand.length >= 2) {
+                      const eligibleFetches = opponent.discardPile
+                          .map((card, idx) => ({ card, idx }))
+                          .filter(({ card }) => canFetchCard(card));
+
+                      if (eligibleFetches.length > 0) {
+                          const bestFetch = eligibleFetches
+                              .sort((a, b) => {
+                                  if (a.card.faction === 'Dino' && b.card.faction !== 'Dino') return -1;
+                                  if (a.card.faction !== 'Dino' && b.card.faction === 'Dino') return 1;
+                                  return (b.card.hp || 0) - (a.card.hp || 0);
+                              })[0];
+                              
+                          let petCard = opponent.hand.splice(petIndex, 1)[0];
+                          let burnCard = opponent.hand.splice(0, 1)[0];
+                          SFX.draw();
+                          let fetched = opponent.discardPile.splice(bestFetch.idx, 1)[0];
+                          opponent.hand.push(fetched);
+                          opponent.discardPile.push(petCard, burnCard);
+                          log(`Hard AI burned 1 to use Bulldog Retriever to fetch ${fetched.name}!`);
+                          actionTaken = true;
+                      }
+                  }
+              }
+              
+              if (!actionTaken) {
+                  let defenseIdx = opponent.hand.findIndex(c => c.faction === "Produce" || c.faction === "Safari" || c.faction === "Battle" || c.name === "Bandit Raccoon");
+                  let emptySlotIdx = opponent.grid.findIndex(s => s === null);
+                  
+                  if (defenseIdx !== -1 && emptySlotIdx !== -1) {
+                      SFX.place();
+                      opponent.grid[emptySlotIdx] = opponent.hand.splice(defenseIdx, 1)[0];
+                      log(`Opponent placed ${opponent.grid[emptySlotIdx].name} in their grid for Free.`);
+                      actionTaken = true;
+                  }
+              }
+
+              if (!actionTaken) {
+                  const dinoChoices = opponent.hand
+                      .map((card, idx) => card.faction === "Dino" ? { card, idx } : null)
+                      .filter(Boolean)
+                      .sort((a, b) => b.card.dmg - a.card.dmg);
+
+                  if (dinoChoices.length && opponent.hand.length >= 2) {
+                      let chosen = null;
+                      if (hardMode) {
+                          chosen = dinoChoices.find(({ card }) => getAiTargetChoice(player.grid, card.dmg) !== null && player.grid[getAiTargetChoice(player.grid, card.dmg)]?.hp <= card.dmg)
+                              || dinoChoices.sort((a, b) => b.card.dmg - a.card.dmg)[0];
+                      } else {
+                          chosen = dinoChoices[0];
+                      }
+
+                      const attackerCard = chosen.card;
+                      const attackerIndex = chosen.idx;
+                      const targetIdx = getAiTargetChoice(player.grid, attackerCard.dmg);
+                      
+                      let isGridEmpty = !player.grid.some(c => c !== null);
+
+                      if (isGridEmpty) {
+                          let attackerCardObj = opponent.hand.splice(attackerIndex, 1)[0];
+                          let burn = opponent.hand.splice(0, 1)[0];
+                          opponent.discardPile.push(attackerCardObj, burn);
+
+                          triggerDamageEffects(document.getElementById('player-score-display-wrapper'), attackerCardObj);
+                          player.health -= attackerCardObj.dmg;
+                          log(`Direct hit! Opponent attacked you with ${attackerCardObj.name} for ${attackerCardObj.dmg} DMG.`);
+                          actionTaken = true;
+                      } else if (targetIdx !== null) {
+                          let attackerCardObj = opponent.hand.splice(attackerIndex, 1)[0];
+                          let burn = opponent.hand.splice(0, 1)[0];
+                          opponent.discardPile.push(attackerCardObj, burn);
+
+                          const targetCard = player.grid[targetIdx];
+                          let excessDamage = attackerCardObj.dmg - targetCard.hp;
+                          
+                          triggerDamageEffects(document.getElementById('player-grid').children[targetIdx], attackerCardObj);
+                          targetCard.hp -= attackerCardObj.dmg;
+                          log(`Opponent burned 1 card and used ${attackerCardObj.name} to deal ${attackerCardObj.dmg} DMG to ${targetCard.name}.`);
+
+                          if (targetCard.hp <= 0) {
+                              player.grid[targetIdx] = null;
+                              log(`Opponent wrecked your ${targetCard.name}!`);
+                              if (excessDamage > 0) {
+                                  player.health -= excessDamage;
+                                  triggerDamageEffects(document.getElementById('player-score-display-wrapper'), attackerCardObj);
+                                  log(`Trample! ${attackerCardObj.name} dealt ${excessDamage} excess damage to your face!`);
+                              }
+                          } else {
+                              log(`Your ${targetCard.name} survives with ${targetCard.hp} HP.`);
+                          }
+                          actionTaken = true;
+                      }
+                  }
+              }
+
+              if (!actionTaken) log("Opponent holds their ground and passes.");
+              
+              updateUI();
+
+              if(player.health > 0 && opponent.health > 0) {
+                  setTimeout(() => {
+                      log("--- YOUR TURN ---");
+                      currentTurn = 'player';
+                      hasDrawnThisTurn = false;
+                      isAnimating = false;
+                      player.grid.forEach(c => {
+                          if(c) {
+                              c.turnsOnGrid = (c.turnsOnGrid || 0) + 1;
+                              c.hasAttacked = false;
+                          }
+                      });
+                      updateUI();
+                  }, 1000);
+              }
+          }, 1000);
+      }, 1000);
+  };
+
+  const executeActionWithAnimation = () => {
+      isAnimating = true;
+      const handEl = document.getElementById('player-hand');
+      
+      if (selectedHandIndex !== null && handEl.children[selectedHandIndex]) {
+          handEl.children[selectedHandIndex].classList.add(
+              currentAction === 'attack' || currentAction === 'attack-face' || currentAction === 'stampede' ? 'anim-lunge' : 'anim-burn'
+          );
+      }
+      currentBurns.forEach(idx => {
+          if (handEl.children[idx]) handEl.children[idx].classList.add('anim-burn');
+      });
+
+      SFX.burn();
+
+      if (currentAction === 'attack' || currentAction === 'raccoon-burn' || currentAction === 'shark-burn') {
+          const oppGrid = document.getElementById('opponent-grid');
+          if (oppGrid.children[actionTargetSlot] && opponent.grid[actionTargetSlot]) {
+              oppGrid.children[actionTargetSlot].classList.add('anim-shake');
+          }
+      }
+
+      setTimeout(() => {
+          let actionCard = selectedHandIndex !== null ? player.hand[selectedHandIndex] : null;
+          let sacrificedCards = currentBurns.map(i => player.hand[i]);
+          
+          if (actionCard) player.discardPile.push(actionCard);
+          player.discardPile.push(...sacrificedCards);
+          
+          if (currentAction === 'attack') {
+              let targetCard = opponent.grid[actionTargetSlot];
+              let excessDamage = actionCard.dmg - targetCard.hp;
+              log(`Burned 1 card to attack with ${actionCard.name}!`);
+              if (targetCard) {
+                  triggerDamageEffects(document.getElementById('opponent-grid').children[actionTargetSlot], actionCard);
+                  targetCard.hp -= actionCard.dmg;
+                  
+                  if (targetCard.hp <= 0) {
+                      opponent.grid[actionTargetSlot] = null;
+                      log(`Wrecked opponent's ${targetCard.name} for ${actionCard.dmg} DMG!`);
+                      if (excessDamage > 0) {
+                          opponent.health -= excessDamage;
+                          triggerDamageEffects(document.getElementById('opp-score-display-wrapper'), actionCard);
+                          log(`Trample! ${excessDamage} excess damage hit the opponent's face!`);
+                      }
+                  } else log(`Opponent's ${targetCard.name} survives with ${targetCard.hp} HP!`);
+              }
+          } 
+          else if (currentAction === 'attack-face') {
+              triggerDamageEffects(document.getElementById('opp-score-display-wrapper'), actionCard);
+              opponent.health -= actionCard.dmg;
+              log(`Direct Hit! Burned 1 card to attack the face for ${actionCard.dmg} DMG!`);
+          }
+          else if (currentAction === 'shark-burn') {
+              let shark = player.grid[sharkSlot];
+              let targetCard = opponent.grid[actionTargetSlot];
+              shark.hasAttacked = true;
+              let excessDamage = shark.dmg - targetCard.hp;
+              
+              triggerDamageEffects(document.getElementById('opponent-grid').children[actionTargetSlot], shark);
+              targetCard.hp -= shark.dmg;
+              log(`Burned 1 card! Shark attacked ${targetCard.name} for ${shark.dmg} DMG.`);
+              
+              if (targetCard.hp <= 0) {
+                  opponent.grid[actionTargetSlot] = null;
+                  log(`Wrecked opponent's ${targetCard.name}!`);
+                  if (excessDamage > 0) {
+                       opponent.health -= excessDamage;
+                       triggerDamageEffects(document.getElementById('opp-score-display-wrapper'), shark);
+                       log(`Trample! Shark dealt ${excessDamage} excess damage to face!`);
+                  }
+              }
+          }
+          else if (currentAction === 'shark-face-burn') {
+              let shark = player.grid[sharkSlot];
+              shark.hasAttacked = true;
+              opponent.health -= shark.dmg;
+              triggerDamageEffects(document.getElementById('opp-score-display-wrapper'), shark);
+              log(`Burned 1 card! Shark hit face for ${shark.dmg} DMG.`);
+          }
+          else if (currentAction === 'fetch') {
+              let fetchedCard = player.discardPile.splice(fetchTargetIndex, 1)[0];
+              player.hand.push(fetchedCard);
+              SFX.draw();
+              log(`Burned 1 card to Fetch ${fetchedCard.name}!`);
+          }
+          else if (currentAction === 'stampede') {
+              let dropIndex = Math.floor(Math.random() * opponent.hand.length);
+              let dropped = opponent.hand.splice(dropIndex, 1)[0];
+              opponent.discardPile.push(dropped);
+              log(`Burned 1 card to Stampede! Opponent lost a card.`);
+          }
+          else if (currentAction === 'raccoon-burn') {
+              let raccoonCard = player.grid[raccoonSlot];
+              let stolenCard = opponent.grid[actionTargetSlot];
+              
+              player.discardPile.push(raccoonCard); 
+              stolenCard.turnsOnGrid = 0; 
+              player.grid[raccoonSlot] = stolenCard;
+              opponent.grid[actionTargetSlot] = null;
+              
+              triggerTheftEffects(
+                  document.getElementById('opponent-grid').children[actionTargetSlot],
+                  document.getElementById('player-grid').children[raccoonSlot],
+                  stolenCard
+              );
+              
+              log(`Burned 1 card! Bandit Raccoon sacrificed itself to steal the ${stolenCard.name}!`);
+          }
+          
+          if (selectedHandIndex !== null) {
+              const indicesToRemove = [selectedHandIndex, ...currentBurns].sort((a,b) => b - a);
+              indicesToRemove.forEach(i => player.hand.splice(i, 1));
+          } else {
+              currentBurns.sort((a,b) => b - a).forEach(i => player.hand.splice(i, 1));
+          }
+          
+          resetActionState();
+          isAnimating = false;
+          updateUI();
+      }, 400);
+  };
+
+  document.getElementById('draw-btn').addEventListener('click', () => {
+      if (isAnimating || currentTurn !== 'player' || hasDrawnThisTurn) return;
+      if (player.deck.length > 0) {
+          SFX.draw();
+          player.hand.push(player.deck.pop());
+          hasDrawnThisTurn = true;
+          log(`You drew a card. (${player.deck.length} left)`);
+          updateUI(null, true);
+      }
+  });
+
+  document.getElementById('end-turn-btn').addEventListener('click', () => {
+      if (isAnimating || currentTurn !== 'player') return;
+      resetActionState();
+      currentTurn = 'opponent';
+      updateUI();
+      runOpponentTurn();
+  });
+
+  document.getElementById('player-grid').addEventListener('click', (e) => {
+      if (isAnimating || currentTurn !== 'player') return; 
+      const target = e.target.closest('.card-slot');
+      if(!target) return;
+      const slotIndex = target.getAttribute('data-slot');
+
+      if (selectedHandIndex === null && currentAction === null) {
+          const card = player.grid[slotIndex];
+          if (card && card.name === "Bandit Raccoon") {
+              if (card.turnsOnGrid > 0) {
+                  raccoonSlot = slotIndex; 
+                  currentAction = 'raccoon-target';
+                  log(`Bandit Raccoon is ready! Click an opponent's card to steal.`);
+                  updateUI();
+              } else {
+                  log(`Bandit Raccoon must survive 1 full turn before stealing!`);
+              }
+          } else if (card && card.faction === "Battle") {
+              if (card.turnsOnGrid > 0 && !card.hasAttacked) {
+                  sharkSlot = slotIndex;
+                  currentAction = 'shark-target';
+                  log(`Aggressive Shark is ready! Click an opponent's card or Face to attack.`);
+                  updateUI();
+              } else if (card.hasAttacked) {
+                  log(`Shark has already attacked this turn!`);
+              } else {
+                  log(`Aggressive Shark must wait 1 turn before attacking!`);
+              }
+          }
+          return;
+      }
+      
+      if (currentAction === 'raccoon-target' || currentAction === 'shark-target') {
+          if (raccoonSlot === slotIndex || sharkSlot === slotIndex) {
+              log("Action canceled.");
+              resetActionState();
+              updateUI();
+          }
+          return;
+      }
+
+      if (selectedHandIndex === null) return;
+      
+      let actionCard = player.hand[selectedHandIndex];
+
+      if (currentAction !== null) return;
+
+      if (!player.grid[slotIndex] && (actionCard.faction !== "Dino") && actionCard.name !== "Bulldog Retriever") {
+          SFX.place();
+          player.grid[slotIndex] = player.hand.splice(selectedHandIndex, 1)[0];
+          player.grid[slotIndex].turnsOnGrid = 0;
+          player.grid[slotIndex].hasAttacked = false;
+          log(`Placed ${player.grid[slotIndex].name} for Free.`);
+          resetActionState();
+          updateUI(slotIndex); 
+      } else {
+          log("You can only place Produce, Safari, Battle, or Raccoon defenses in empty slots.");
+      }
+  });
+
+  document.getElementById('opp-title').addEventListener('click', () => {
+      if (isAnimating || currentTurn !== 'player') return;
+      
+      if (currentAction === 'shark-target') {
+          const isGridEmpty = !opponent.grid.some(c => c !== null);
+          if (!isGridEmpty) {
+              log("Blocked! You must clear the Frontline first!");
+              resetActionState(); updateUI(); return;
+          }
+          burnsRequired = 1;
+          if (player.hand.length < 1) { log("Need 1 card to burn!"); resetActionState(); updateUI(); return; }
+          currentAction = 'shark-face-burn';
+          log(`Targeting Face with Shark... Click 1 card to burn.`);
+          updateUI();
+          return;
+      }
+
+      if (selectedHandIndex === null) return;
+      
+      const actionCard = player.hand[selectedHandIndex];
+      if (actionCard.faction !== "Dino") {
+          log("Only Dinos can attack the opponent's face!");
+          return;
+      }
+
+      const isGridEmpty = !opponent.grid.some(c => c !== null);
+      if (!isGridEmpty) {
+          log("Blocked! The opponent's Frontline is active. You must clear their grid first!");
+          resetActionState();
+          updateUI();
+          return;
+      }
+
+      burnsRequired = 1;
+      if (player.hand.length < burnsRequired + 1) {
+          log(`Error: You need 1 extra card to burn!`);
+          resetActionState();
+          updateUI();
+          return;
+      }
+
+      currentAction = 'attack-face';
+      log(`Targeting Face with ${actionCard.name} for ${actionCard.dmg} DMG... Click 1 card to burn.`);
+      updateUI();
+  });
+
+  document.getElementById('opponent-grid').addEventListener('click', (e) => {
+      if (isAnimating || currentTurn !== 'player') return;
+      const target = e.target.closest('.card-slot');
+      if(!target) return;
+      const slotIndex = target.getAttribute('data-slot');
+      
+      if (currentAction === 'raccoon-target') {
+          const targetCard = opponent.grid[slotIndex];
+          if (!targetCard) {
+              log("You can only steal a slot that has a card in it!");
+              return;
+          }
+          if (hasTaunt(opponent.grid) && targetCard.faction !== "Safari") {
+              log("Blocked by Safari Taunt! You must steal the Safari card first.");
+              resetActionState(); updateUI(); return;
+          }
+          
+          actionTargetSlot = slotIndex;
+          currentAction = 'raccoon-burn';
+          burnsRequired = 1;
+          log(`Target locked on ${targetCard.name}! Click 1 card in hand to burn to execute the steal.`);
+          updateUI();
+          return;
+      }
+      
+      if (currentAction === 'shark-target') {
+          const targetCard = opponent.grid[slotIndex];
+          if (!targetCard) return;
+          if (hasTaunt(opponent.grid) && targetCard.faction !== "Safari") {
+              log("Blocked by Safari Taunt!");
+              resetActionState(); updateUI(); return;
+          }
+          actionTargetSlot = slotIndex;
+          currentAction = 'shark-burn';
+          burnsRequired = 1;
+          if (player.hand.length < 1) { log("Need 1 card to burn!"); resetActionState(); updateUI(); return; }
+          log(`Target locked! Click 1 card to burn to execute Shark attack.`);
+          updateUI();
+          return;
+      }
+
+      if (selectedHandIndex === null) return;
+      
+      const actionCard = player.hand[selectedHandIndex];
+      if (actionCard.faction !== "Dino") {
+          log("Only Dinos can attack!");
+          return;
+      }
+
+      const targetCard = opponent.grid[slotIndex];
+      
+      if (!targetCard) {
+          log("Corner is empty. Click 'Direct Attack' to deal damage to the player!");
+          return;
+      }
+
+      if (hasTaunt(opponent.grid)) {
+          if (targetCard.faction !== "Safari") {
+              log("Blocked! You must target the Safari card first.");
+              resetActionState();
+              updateUI();
+              return;
+          }
+      }
+
+      burnsRequired = 1; 
+      
+      if (player.hand.length < burnsRequired + 1) {
+          log(`Error: You need 1 extra card to burn!`);
+          resetActionState();
+          updateUI();
+          return;
+      }
+      
+      currentAction = 'attack';
+      actionTargetSlot = slotIndex;
+      log(`Targeting slot ${slotIndex} with ${actionCard.name} for ${actionCard.dmg} DMG... Click 1 card to burn.`);
+      updateUI();
+  });
+
+  document.getElementById('graveyard').addEventListener('click', () => {
+      if (selectedHandIndex === null || isAnimating || currentTurn !== 'player') return;
+      const actionCard = player.hand[selectedHandIndex];
+      
+      if (actionCard.faction !== "Pet") {
+          log("Only Pets can use the Graveyard!");
+          return;
+      }
+      if (player.discardPile.length === 0) {
+          log("Graveyard is empty!");
+          return;
+      }
+      if (player.hand.length < 2) {
+          log("Need an extra card to burn for Fetch!");
+          return;
+      }
+
+      const gyModal = document.getElementById('gy-modal');
+      const gyCardsEl = document.getElementById('gy-cards');
+      gyCardsEl.innerHTML = '';
+
+      const fetchableCards = player.discardPile
+          .map((card, idx) => ({ card, idx }))
+          .filter(({ card }) => canFetchCard(card));
+
+      if (fetchableCards.length === 0) {
+          log("Only Dino and defense cards can be fetched from the graveyard.");
+          return;
+      }
+      
+      fetchableCards.forEach(({ card, idx }) => {
+          let div = document.createElement('div');
+          
+          let statsInfo = "";
+          if (card.faction === "Dino") statsInfo = `${card.dmg} DMG`;
+          else if (card.faction === "Produce" || card.faction === "Safari") statsInfo = `${card.hp} HP`;
+          else if (card.faction === "Battle") statsInfo = `${card.hp}HP/${card.dmg}DMG`;
+          else statsInfo = `Utility`;
+          
+          div.className = `card-slot hand-card filled-${card.faction.toLowerCase()}`;
+          div.innerHTML = `${renderCardImage(card)}<div class="card-name-label">${card.name}</div><small>(${card.faction} | ${statsInfo})</small>`;
+          div.onclick = () => {
+              fetchTargetIndex = idx;
+              gyModal.style.display = 'none';
+              document.getElementById('gy-overlay').style.display = 'none';
+              currentAction = 'fetch';
+              burnsRequired = 1;
+              log(`Selected ${card.name} to Fetch. Now click 1 card to burn.`);
+              updateUI();
+          };
+          gyCardsEl.appendChild(div);
+      });
+      
+      gyModal.style.display = 'block';
+      document.getElementById('gy-overlay').style.display = 'block';
+  });
+
+  document.getElementById('opponent-hand').addEventListener('click', () => {
+      if (selectedHandIndex === null || isAnimating || currentTurn !== 'player') return;
+      const actionCard = player.hand[selectedHandIndex];
+      
+      if (actionCard.faction !== "Safari") {
+          log("Only Safari cards can Stampede the opponent's hand!");
+          return;
+      }
+      if (opponent.hand.length === 0) {
+          log("Opponent's hand is empty!");
+          return;
+      }
+      if (player.hand.length < 2) {
+          log("Need an extra card to burn for Stampede!");
+          return;
+      }
+
+      currentAction = 'stampede';
+      burnsRequired = 1;
+      log(`Stampede initiated! Click 1 card to burn.`);
+      updateUI();
+  });
+
+  // --- CARD GLOSSARY DATA ---
+  const CARD_GLOSSARY = [
+      {
+          name: "Aggressive Shark",
+          faction: "Battle",
+          stats: "1 HP / 1 DMG",
+          img: "images/aggressive-shark.png",
+          rules: "Placed freely onto your defensive grid. Must wait 1 full turn to ready. Once ready, you may <b>burn 1 card</b> from hand to attack either an opponent's grid slot or their Face directly! Deals 1 DMG with Trample."
+      },
+      {
+          name: "Armored Walrus",
+          faction: "Safari",
+          stats: "3 HP (Taunt)",
+          img: "images/armored-walrus.png",
+          rules: "<b>Grid Defense:</b> 3 HP heavy Meat Shield. While in play, opponents ARE FORCED to target this card before attacking any other corner or Face!<br><br><b>Hand Action:</b> Play from hand and burn 1 extra card to trigger a <i>Stampede</i>, randomly discarding 1 card from opponent's hand."
+      },
+      {
+          name: "Bandit Raccoon",
+          faction: "Pet",
+          stats: "2 HP (Heist)",
+          img: "images/bandit-raccoon.png",
+          rules: "Placed freely on your grid. Must survive 1 full turn. Once ready, click it and <b>burn 1 card</b> to sacrifice this Raccoon and STEAL any opponent corner card straight onto your side!"
+      },
+      {
+          name: "Basic Blueberry",
+          faction: "Produce",
+          stats: "1 HP (Defense)",
+          img: "images/basic-blueberry.png",
+          rules: "Free to place on your 2x2 grid. Acts as a front-line defense wall that protects your Face from direct attacks until destroyed. Cannot attack."
+      },
+      {
+          name: "Bulldog Retriever",
+          faction: "Pet",
+          stats: "Utility (Fetch)",
+          img: "images/bulldog-retriever.png",
+          rules: "Played directly from your hand. Click the Graveyard with this card selected, choose any perished Dino, Battle, Produce, or Safari card, and <b>burn 1 card</b> to pull it directly back into your hand!"
+      },
+      {
+          name: "Charging Gorilla",
+          faction: "Safari",
+          stats: "2 HP (Taunt)",
+          img: "images/charging-gorilla.png",
+          rules: "<b>Grid Defense:</b> 2 HP Taunt shield. Protects your Face and corners by forcing incoming attacks onto itself first.<br><br><b>Hand Action:</b> Burn 1 card from hand to discard a random card from your opponent's hand via <i>Stampede</i>."
+      },
+      {
+          name: "Heavy Pumpkin",
+          faction: "Produce",
+          stats: "3 HP (Defense)",
+          img: "images/heavy-pumpkin.png",
+          rules: "A massive 3 HP defensive wall! Free to deploy to any empty corner slot. Absorbs multiple hits before allowing excess Trample damage through."
+      },
+      {
+          name: "Smashing Stego",
+          faction: "Dino",
+          stats: "3 DMG (Trample)",
+          img: "images/smashing-stegosaurus.png",
+          rules: "Aggressive attack card. Select from hand, click an opponent corner, and <b>burn 1 card</b> to strike for 3 DMG! Excess damage beyond the defender's HP <b>Tramples directly into the opponent's Face HP</b>."
+      },
+      {
+          name: "Sneaky T-Rex",
+          faction: "Dino",
+          stats: "2 DMG (Trample)",
+          img: "images/sneaky-t-rex.png",
+          rules: "Quick attack predator. Select from hand, choose a corner target, and <b>burn 1 card</b> to deal 2 DMG. Fast and reliable for knocking out initial defenses and chipping Face health."
+      },
+      {
+          name: "Stampeding Elephant",
+          faction: "Safari",
+          stats: "1 HP (Taunt)",
+          img: "images/stampeding-elephant.png",
+          rules: "<b>Grid Defense:</b> 1 HP Taunt card. Forces attacks onto itself.<br><br><b>Hand Action:</b> Select from hand, click the opponent's hand, and burn 1 card to Stampede, trashing a random card from their grasp!"
+      },
+      {
+          name: "Tough Tomato",
+          faction: "Produce",
+          stats: "2 HP (Defense)",
+          img: "images/tough-tomato.png",
+          rules: "Solid 2 HP wall. Deployed freely to your grid. Great for absorbing a 2 DMG hit from a Sneaky T-Rex without letting Trample spill over to your health."
+      },
+      {
+          name: "Treading Triceratops",
+          faction: "Dino",
+          stats: "4 DMG (Trample)",
+          img: "images/treading-triceratops.png",
+          rules: "The ultimate heavyweight attacker! Select from hand, pick a corner or cleared Face, and <b>burn 1 card</b> to smash for a devastating 4 DMG. Crushes all single defenses and deals huge Trample bleed-through!"
+      }
+  ];
+
+  // --- SIFTING CAROUSEL ENGINE ---
+  const carouselModal = document.getElementById('carousel-modal');
+  const carouselCloseBtn = document.getElementById('carousel-close-btn');
+  const glossaryTrack = document.getElementById('glossary-track');
+  
+  let targetPanX = 0;
+  let currentPanX = 0;
+
+  function renderGlossary() {
+      glossaryTrack.innerHTML = '';
+      
+      CARD_GLOSSARY.forEach((item, idx) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'glossary-card-wrapper';
+          wrapper.style.zIndex = idx;
+          
+          // Random slight rotation to make it look like tossed cards
+          const rot = (Math.random() * 4 - 2).toFixed(1);
+          wrapper.style.setProperty('--base-rot', `${rot}deg`);
+          
+          wrapper.innerHTML = `
+              <div class="carousel-card-inner">
+                  <div class="carousel-card-face carousel-face-front">
+                      <img src="${item.img}" alt="${item.name}">
+                      <h2>${item.name}</h2>
+                      <div class="carousel-badge">${item.faction} &bull; ${item.stats}</div>
+                      <div class="carousel-tap-hint">Tap Card to Flip</div>
+                  </div>
+                  <div class="carousel-card-face carousel-face-back">
+                      <div class="carousel-back-header">
+                          <h2>${item.name}</h2>
+                          <span>${item.faction}</span>
+                      </div>
+                      <div class="carousel-back-stats">
+                          <b>Role / Stats:</b> ${item.stats}
+                      </div>
+                      <div class="carousel-back-body">
+                          <p>${item.rules}</p>
+                      </div>
+                  </div>
+              </div>
+          `;
+          
+          wrapper.addEventListener('click', () => {
+              SFX.flip();
+              const inner = wrapper.querySelector('.carousel-card-inner');
+              inner.classList.toggle('is-flipped');
+          });
+          
+          glossaryTrack.appendChild(wrapper);
+      });
+  }
+
+  // Mouse pan logic
+  carouselModal.addEventListener('mousemove', (e) => {
+      const mouseX = e.clientX;
+      const windowWidth = window.innerWidth;
+      const trackWidth = glossaryTrack.scrollWidth;
+      
+      if (trackWidth <= windowWidth) {
+          targetPanX = 0; 
+          return;
+      }
+      
+      const percentage = mouseX / windowWidth;
+      targetPanX = -percentage * (trackWidth - windowWidth);
+  });
+
+  function smoothPanLoop() {
+      if (carouselModal.style.display === 'flex') {
+          currentPanX += (targetPanX - currentPanX) * 0.08; 
+          glossaryTrack.style.transform = `translateX(${currentPanX}px)`;
+      }
+      requestAnimationFrame(smoothPanLoop);
+  }
+
+  function openCarousel() {
+      ensureAudio();
+      carouselModal.style.display = 'flex';
+  }
+
+  function closeCarousel() {
+      carouselModal.style.display = 'none';
+      const cards = document.querySelectorAll('.carousel-card-inner');
+      cards.forEach(c => c.classList.remove('is-flipped'));
+  }
+
+  document.getElementById('glossary-tab-btn').addEventListener('click', openCarousel);
+  carouselCloseBtn.addEventListener('click', closeCarousel);
+
+  document.addEventListener('keydown', (e) => {
+      if (carouselModal.style.display === 'flex' && e.key === 'Escape') closeCarousel();
+  });
+  
+  carouselModal.addEventListener('click', (e) => {
+      if (e.target === carouselModal || e.target.id === 'glossary-container') closeCarousel();
+  });
+
+  // Initialize
+  renderGlossary();
+  smoothPanLoop();
+  updateUI();
+</script>
+</body>
+</html>
