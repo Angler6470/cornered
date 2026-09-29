@@ -2,10 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Corner Critters "Cornered" Prototype</title>
 <style>
   /* --- GLOBAL STYLES & SCROLLBAR FIXES --- */
+  html, body {
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+  }
+
   body { 
       font-family: sans-serif; 
       background-color: #dbe2dd; 
@@ -17,9 +23,9 @@
       color: #333; 
       margin: 0; 
       padding: 0; 
-      overflow-x: hidden; 
       scrollbar-width: thin; 
       scrollbar-color: #ccc transparent;
+      -webkit-tap-highlight-color: transparent;
   }
 
   ::-webkit-scrollbar { width: 6px; }
@@ -33,12 +39,18 @@
       background: #1a1a1a; color: #fff; z-index: 2000;
       display: flex; align-items: center; justify-content: center; flex-direction: column;
       transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+      padding: 15px;
+      box-sizing: border-box;
+      text-align: center;
   }
   #game-over-screen { display: none; background: rgba(0,0,0,0.9); z-index: 3000; }
   
   .splash-title {
       animation: pulse 2s infinite ease-in-out;
       margin-bottom: 10px;
+      max-width: 600px;
+      width: 90%;
+      height: auto;
   }
   .game-over-title { font-size: 5rem; margin-bottom: 30px; text-shadow: 0 0 20px #fff; text-transform: uppercase; }
   
@@ -48,19 +60,40 @@
 
   @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-  /* --- LAYOUT (COMPACT) --- */
-  .game-wrapper { max-width: 1100px; margin: 5px auto 15px auto; display: none; justify-content: space-between; align-items: flex-start; gap: 15px; padding: 0 20px; }
-  .game-board { flex-grow: 1; text-align: center; }
+  /* --- LAYOUT (COMPACT & RESPONSIVE) --- */
+  .game-wrapper { 
+      max-width: 1100px; 
+      margin: 5px auto 25px auto; 
+      display: none; 
+      justify-content: space-between; 
+      align-items: flex-start; 
+      gap: 15px; 
+      padding: 0 20px; 
+      box-sizing: border-box;
+  }
+  .game-board { flex-grow: 1; text-align: center; width: 100%; max-width: 580px; margin: 0 auto; }
   
-  h2 { margin: 2px 0; font-size: 1rem; position: relative;}
+  h2 { margin: 4px 0; font-size: 1rem; position: relative;}
   
-  .score-display { position: relative; background: #fff; border: 3px solid #ccc; border-radius: 12px; padding: 10px; text-align: center; min-width: 90px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: all 0.2s; overflow: hidden; }
-  .score-display h3 { margin-top: 0; color: #555; font-size: 0.9rem; }
-  .large-score { font-size: 2.8rem; font-weight: bold; color: #cc0000; margin: 2px 0; transition: transform 0.2s; }
+  .score-display { 
+      position: relative; 
+      background: #fff; 
+      border: 3px solid #ccc; 
+      border-radius: 12px; 
+      padding: 10px; 
+      text-align: center; 
+      min-width: 90px; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05); 
+      transition: all 0.2s; 
+      overflow: hidden; 
+      box-sizing: border-box;
+  }
+  .score-display h3 { margin-top: 0; color: #555; font-size: 0.9rem; margin-bottom: 4px; }
+  .large-score { font-size: 2.8rem; font-weight: bold; color: #cc0000; margin: 2px 0; transition: transform 0.2s; line-height: 1; }
 
   /* --- LEGEND PANEL & BURN RULE --- */
   .right-container { display: flex; gap: 10px; align-items: flex-start; flex-direction: column; }
-  .legend-panel { background: #fff; border: 3px solid #ccc; border-radius: 12px; padding: 12px; text-align: left; box-shadow: 0 4px 10px rgba(0,0,0,0.05); max-width: 210px; }
+  .legend-panel { background: #fff; border: 3px solid #ccc; border-radius: 12px; padding: 12px; text-align: left; box-shadow: 0 4px 10px rgba(0,0,0,0.05); max-width: 210px; box-sizing: border-box; }
   .legend-panel h3 { margin-top: 0; margin-bottom: 10px; color: #555; font-size: 0.9rem; text-align: center; }
   .legend-item { display: flex; align-items: center; margin-bottom: 8px; font-size: 12px; color: #333; }
   .legend-color { width: 14px; height: 14px; border-radius: 4px; margin-right: 8px; border: 2px solid; flex-shrink: 0; }
@@ -135,11 +168,11 @@
   .card-art { display: block; width: 100%; max-height: 48px; object-fit: contain; margin: 0 auto 4px; border-radius: 6px; background: rgba(255,255,255,0.65); }
   .card-name-label { line-height: 1.1; font-size: 10px; }
   
-  .selected { box-shadow: 0 0 25px 8px rgba(0, 255, 0, 0.9) !important; border-color: #0f0 !important; transform: translateY(-30px) scale(1.18) !important; z-index: 25 !important;}
-  .burn-mode { box-shadow: 0 0 25px 8px rgba(255, 0, 0, 0.9) !important; border-color: #f00 !important; transform: translateY(-30px) scale(1.18) !important; z-index: 25 !important;}
+  .selected { box-shadow: 0 0 25px 8px rgba(0, 255, 0, 0.9) !important; border-color: #0f0 !important; transform: translateY(-25px) scale(1.12) !important; z-index: 25 !important;}
+  .burn-mode { box-shadow: 0 0 25px 8px rgba(255, 0, 0, 0.9) !important; border-color: #f00 !important; transform: translateY(-25px) scale(1.12) !important; z-index: 25 !important;}
   .action-highlight { box-shadow: 0 0 10px 3px rgba(0, 0, 255, 0.7); }
   
-  .action-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 5px 0; }
+  .action-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 5px 0; flex-wrap: wrap; }
   .difficulty-panel {
       background: #fff; border: 3px solid #ccc; border-radius: 12px; padding: 6px 12px; margin: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center;
   }
@@ -159,13 +192,16 @@
   .difficulty-option:hover { color: #222; }
   .difficulty-option.active:hover { color: #fff; }
   .title-row {
-      display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 5px; margin-bottom: 10px; width: 100%;
+      display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 5px; margin-bottom: 10px; width: 100%; flex-wrap: wrap; padding: 0 10px; box-sizing: border-box;
   }
   .main-game-title {
       display: none; 
       margin: 0;
       animation: pulse 2.5s infinite ease-in-out;
       text-align: center;
+      max-width: 260px;
+      width: 70%;
+      height: auto;
   }
   .new-game-btn {
       background: #0055cc;
@@ -281,14 +317,14 @@
       text-align: left;
   }
 
-  #gy-modal { display: none; position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: #fff; border: 4px solid #333; padding: 20px; z-index: 100; max-width: 90%; max-height: 80%; overflow-y: auto; border-radius: 12px; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
-  #gy-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; }
+  #gy-modal { display: none; position: fixed; top: 8%; left: 50%; transform: translateX(-50%); background: #fff; border: 4px solid #333; padding: 15px; z-index: 4000; width: 92%; max-width: 480px; max-height: 84%; overflow-y: auto; border-radius: 12px; box-shadow: 0 0 30px rgba(0,0,0,0.8); box-sizing: border-box; text-align: center; }
+  #gy-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 3999; }
 
   button.sys-btn { padding: 6px 12px; font-size: 13px; cursor: pointer; border-radius: 8px; background: #333; color: #fff; border: none; margin: 0 4px;}
   button.sys-btn:hover { background: #555; }
   button.sys-btn:disabled { background: #aaa; cursor: not-allowed; }
 
-  #console { text-align: left; background: #222; color: #0f0; padding: 8px; border-radius: 8px; font-family: monospace; height: 75px; overflow-y: auto; font-size: 12px; line-height: 1.4; margin-top: 0px; }
+  #console { text-align: left; background: #222; color: #0f0; padding: 8px; border-radius: 8px; font-family: monospace; height: 75px; overflow-y: auto; font-size: 12px; line-height: 1.4; margin-top: 5px; box-sizing: border-box; }
 
   /* --- BOUNCY EFFECTS & ANIMATIONS --- */
   @keyframes anim-drop { 
@@ -366,7 +402,7 @@
       box-shadow: 0 0 12px rgba(255, 196, 0, 0.9);
   }
 
-  /* --- BOUNCY CLAW SLASH & ATTACK POPUP FX --- */
+  /* --- ATTACK POPUP FX --- */
   #attacker-popup {
       position: fixed;
       top: 40%;
@@ -447,20 +483,21 @@
       display: none;
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(14, 10, 4, 0.9);
+      background: rgba(14, 10, 4, 0.94);
       backdrop-filter: blur(6px);
       z-index: 3500;
       align-items: center;
       justify-content: flex-start;
       flex-direction: column;
       user-select: none;
-      overflow: hidden; /* Hide scrollbars entirely */
+      overflow: hidden; 
+      touch-action: pan-y;
   }
   .carousel-close-x {
       position: absolute;
-      top: 24px;
-      right: 30px;
-      background: rgba(212, 175, 55, 0.2);
+      top: 20px;
+      right: 24px;
+      background: rgba(212, 175, 55, 0.25);
       border: 1.5px solid #d4af37;
       color: #f7d774;
       width: 44px;
@@ -480,22 +517,49 @@
       transform: scale(1.1);
   }
 
-  /* The Container that tracks mouse movement */
+  .carousel-header-box {
+      text-align: center; 
+      margin-top: 25px; 
+      z-index: 50; 
+      padding: 0 20px;
+  }
+  .carousel-header-box h2 {
+      color: #ffd700; 
+      text-shadow: 0 2px 8px #000; 
+      font-size: 2.2rem; 
+      margin: 0 0 5px 0;
+  }
+  .carousel-header-box p {
+      color: #c9b482; 
+      font-size: 14px; 
+      margin: 0; 
+      font-weight: bold; 
+      letter-spacing: 1px; 
+      text-transform: uppercase;
+  }
+
+  /* The Container that tracks mouse & touch movement */
   #glossary-container {
       position: relative;
       width: 100%;
       height: 100%;
       display: flex;
       align-items: center;
+      touch-action: none; 
+      cursor: grab;
+  }
+  #glossary-container:active {
+      cursor: grabbing;
   }
 
   /* The actual moving track containing the fanned cards */
   .glossary-track {
       display: flex;
       align-items: center;
-      padding: 0 20vw; /* Padding to let the user pan to the very ends */
+      padding: 0 25vw; 
       width: max-content;
       will-change: transform;
+      pointer-events: auto;
   }
   
   /* Overlapping Accordion Cards */
@@ -504,8 +568,8 @@
       flex-shrink: 0;
       width: 250px;
       height: 360px;
-      margin-left: -140px; /* Deep overlap for accordion effect */
-      transition: margin 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      margin-left: -140px; 
+      transition: margin 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
       transform-origin: bottom center;
       transform: rotate(var(--base-rot, 0deg));
       cursor: pointer;
@@ -514,10 +578,9 @@
       margin-left: 0;
   }
   
-  /* The Spread Hover Effect */
   .glossary-card-wrapper:hover {
       transform: translateY(-40px) scale(1.15) rotate(0deg) !important;
-      margin-right: 150px; /* Pushes the next cards away to reveal this one */
+      margin-right: 150px; 
       z-index: 100 !important;
   }
 
@@ -529,7 +592,7 @@
       transform-style: preserve-3d;
       transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
       border-radius: 18px;
-      box-shadow: -10px 15px 30px rgba(0, 0, 0, 0.8); /* Strong shadow for depth */
+      box-shadow: -10px 15px 30px rgba(0, 0, 0, 0.8);
   }
   .carousel-card-inner.is-flipped {
       transform: rotateY(180deg);
@@ -641,6 +704,175 @@
       width: 100%;
   }
 
+  /* --- RESPONSIVE MOBILE STYLES (UNDER 768px) --- */
+  @media (max-width: 768px) {
+      .game-wrapper {
+          flex-direction: column;
+          align-items: center;
+          padding: 0 8px;
+          gap: 12px;
+          margin-top: 5px;
+      }
+      .game-over-title {
+          font-size: 3rem;
+      }
+      .title-row {
+          gap: 8px;
+          margin-bottom: 6px;
+      }
+      .main-game-title {
+          max-width: 160px;
+      }
+      .difficulty-panel {
+          padding: 4px 8px;
+      }
+      .difficulty-option {
+          padding: 4px 8px;
+          font-size: 10px;
+      }
+      .new-game-btn {
+          padding: 6px 10px;
+          font-size: 11px;
+      }
+      .score-display {
+          min-width: 80px;
+          padding: 6px 12px;
+          border-radius: 10px;
+      }
+      .score-display h3 {
+          font-size: 0.75rem;
+          margin-bottom: 2px;
+      }
+      .large-score {
+          font-size: 1.9rem;
+      }
+      .right-container {
+          width: 100%;
+          align-items: center;
+          gap: 10px;
+      }
+      .legend-panel {
+          max-width: 100%;
+          width: 100%;
+      }
+      .grid-2x2 {
+          grid-template-columns: repeat(2, 88px);
+          grid-template-rows: repeat(2, 118px);
+          gap: 5px;
+      }
+      .card-slot {
+          font-size: 10px;
+          padding: 3px;
+      }
+      .card-art {
+          max-height: 40px;
+      }
+      .card-name-label {
+          font-size: 9px;
+      }
+      #player-hand {
+          min-height: 130px;
+          padding-top: 8px;
+          gap: 5px;
+      }
+      #player-hand .hand-card {
+          width: 78px;
+          height: 112px;
+          font-size: 10px;
+          margin-top: -4px;
+      }
+      #player-hand .hand-card:hover {
+          transform: translateY(-15px) scale(1.08);
+      }
+      .selected {
+          transform: translateY(-16px) scale(1.08) !important;
+      }
+      .burn-mode {
+          transform: translateY(-16px) scale(1.08) !important;
+      }
+      #opponent-hand .hand-card {
+          width: 64px;
+          height: 92px;
+          font-size: 9.5px;
+      }
+      .graveyard {
+          width: 76px;
+          height: 52px;
+          font-size: 9.5px;
+      }
+      .face-target {
+          padding: 6px 14px;
+          font-size: 11px;
+      }
+      .etsy-banner {
+          left: 10px;
+          bottom: 10px;
+          padding: 6px 14px;
+          font-size: 11px;
+      }
+      #glossary-tab-btn {
+          top: 35%;
+          padding: 10px 6px;
+          font-size: 11px;
+          letter-spacing: 1px;
+      }
+      /* Mobile Accordion Drawer */
+      .carousel-header-box h2 {
+          font-size: 1.5rem;
+      }
+      .carousel-header-box p {
+          font-size: 11px;
+      }
+      .carousel-close-x {
+          top: 12px;
+          right: 14px;
+          width: 36px;
+          height: 36px;
+          font-size: 22px;
+      }
+      .glossary-track {
+          padding: 0 15vw;
+      }
+      .glossary-card-wrapper {
+          width: 195px;
+          height: 290px;
+          margin-left: -115px;
+      }
+      .glossary-card-wrapper:hover {
+          transform: translateY(-25px) scale(1.08) rotate(0deg) !important;
+          margin-right: 120px;
+      }
+      .carousel-face-front img {
+          max-width: 95px;
+          max-height: 95px;
+          margin-bottom: 8px;
+      }
+      .carousel-face-front h2 {
+          font-size: 1.1rem;
+      }
+      .carousel-badge {
+          font-size: 9px;
+          padding: 3px 8px;
+      }
+      .carousel-tap-hint {
+          font-size: 8.5px;
+      }
+      .carousel-card-face {
+          padding: 12px;
+      }
+      .carousel-back-header h2 {
+          font-size: 1.05rem;
+      }
+      .carousel-back-stats {
+          font-size: 11px;
+          padding: 4px 8px;
+          margin-bottom: 8px;
+      }
+      .carousel-back-body {
+          font-size: 11px;
+          line-height: 1.35;
+      }
+  }
 </style>
 </head>
 <body>
@@ -650,23 +882,21 @@
 <!-- GLOSSARY RIGHT-SIDE TAB -->
 <div id="glossary-tab-btn" title="Open Card Library">📖 CARDS</div>
 
-<!-- MOUSE-PANNING ACCORDION CAROUSEL MODAL -->
+<!-- MOUSE & TOUCH PANNING ACCORDION MODAL -->
 <div id="carousel-modal">
     <button class="carousel-close-x" id="carousel-close-btn" title="Close Library">&times;</button>
-    <div style="text-align: center; margin-top: 30px; z-index: 50;">
-        <h2 style="color: #ffd700; text-shadow: 0 2px 8px #000; font-size: 2.2rem; margin: 0 0 5px 0;">Card Library</h2>
-        <p style="color: #c9b482; font-size: 14px; margin: 0; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;">Move mouse left/right to pan &bull; Click to flip</p>
+    <div class="carousel-header-box">
+        <h2>Card Library</h2>
+        <p>Swipe or move mouse to pan &bull; Tap card to flip</p>
     </div>
     
     <div id="glossary-container">
-        <div class="glossary-track" id="glossary-track">
-            <!-- Cards will be dynamically injected here by JS -->
-        </div>
+        <div class="glossary-track" id="glossary-track"></div>
     </div>
 </div>
 
 <div id="splash">
-    <img src="images/logo-corner-critters.png" alt="Corner Critters Logo" class="splash-title" style="max-width: 600px; width: 90%; height: auto;">
+    <img src="images/logo-corner-critters.png" alt="Corner Critters Logo" class="splash-title">
     <div class="splash-subtitle">A strategy card game Prototype</div>
     <button class="action-btn" id="start-game-btn">Start Game</button>
 </div>
@@ -696,13 +926,13 @@
         </div>
     </div>
 
-    <img src="images/logo-corner-critters.png" id="main-title" class="main-game-title" alt="Corner Critters Logo" style="max-width: 260px; width: 80%; height: auto;">
+    <img src="images/logo-corner-critters.png" id="main-title" class="main-game-title" alt="Corner Critters Logo">
     <button type="button" class="new-game-btn" id="new-game-btn">New Game</button>
 </div>
 
 <div class="game-wrapper" id="main-wrapper">
   
-  <!-- Left Side: Opponent Score -->
+  <!-- Opponent Score -->
   <div class="score-display" id="opp-score-display-wrapper">
     <h3>Opponent HP</h3>
     <div class="large-score" id="opp-score-display">12</div>
@@ -743,7 +973,7 @@
     <div id="burn-indicator" class="burn-indicator">PAY THE COST: Select <span id="burn-count">1</span> Card(s) to Burn</div>
     <div class="hand-container" id="player-hand"></div>
 
-    <div id="console">System booted...<br>> TRAMPLE RULE IS ACTIVE: Excess damage spills over to the opponent's Face!</div>
+    <div id="console">System booted...<br>&gt; TRAMPLE RULE IS ACTIVE: Excess damage spills over to the opponent's Face!</div>
   </div>
 
   <!-- Right Side: Player Score & Legend Container -->
@@ -1001,7 +1231,7 @@
 
   const log = (msg) => {
     const c = document.getElementById('console');
-    c.innerHTML += `<br>> ${msg}`;
+    c.innerHTML += `<br>&gt; ${msg}`;
     c.scrollTop = c.scrollHeight;
   };
 
@@ -2176,13 +2406,19 @@
       }
   ];
 
-  // --- SIFTING CAROUSEL ENGINE ---
+  // --- ACCORDION TRACK WITH MOUSE & TOUCH SWIPING ---
   const carouselModal = document.getElementById('carousel-modal');
   const carouselCloseBtn = document.getElementById('carousel-close-btn');
+  const glossaryContainer = document.getElementById('glossary-container');
   const glossaryTrack = document.getElementById('glossary-track');
   
   let targetPanX = 0;
   let currentPanX = 0;
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartPanX = 0;
+  let touchMoved = false;
+  let isTouching = false;
 
   function renderGlossary() {
       glossaryTrack.innerHTML = '';
@@ -2192,7 +2428,6 @@
           wrapper.className = 'glossary-card-wrapper';
           wrapper.style.zIndex = idx;
           
-          // Random slight rotation to make it look like tossed cards
           const rot = (Math.random() * 4 - 2).toFixed(1);
           wrapper.style.setProperty('--base-rot', `${rot}deg`);
           
@@ -2220,6 +2455,7 @@
           `;
           
           wrapper.addEventListener('click', () => {
+              if (touchMoved) return; // Prevent flipping if user was swiping
               SFX.flip();
               const inner = wrapper.querySelector('.carousel-card-inner');
               inner.classList.toggle('is-flipped');
@@ -2229,8 +2465,49 @@
       });
   }
 
-  // Mouse pan logic
+  // --- TOUCH SWIPE LOGIC FOR MOBILE ---
+  glossaryContainer.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+          isTouching = true;
+          touchMoved = false;
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+          touchStartPanX = currentPanX;
+      }
+  }, { passive: true });
+
+  glossaryContainer.addEventListener('touchmove', (e) => {
+      if (!isTouching || e.touches.length !== 1) return;
+      const touchX = e.touches[0].clientX;
+      const touchY = e.touches[0].clientY;
+      const deltaX = touchX - touchStartX;
+      const deltaY = touchY - touchStartY;
+      
+      if (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8) {
+          touchMoved = true;
+      }
+      
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          if (e.cancelable) e.preventDefault();
+          const windowWidth = window.innerWidth;
+          const trackWidth = glossaryTrack.scrollWidth;
+          const minPan = Math.min(0, windowWidth - trackWidth);
+          targetPanX = Math.max(minPan - 30, Math.min(30, touchStartPanX + deltaX * 1.35));
+      }
+  }, { passive: false });
+
+  glossaryContainer.addEventListener('touchend', () => {
+      isTouching = false;
+      const windowWidth = window.innerWidth;
+      const trackWidth = glossaryTrack.scrollWidth;
+      const minPan = Math.min(0, windowWidth - trackWidth);
+      if (targetPanX > 0) targetPanX = 0;
+      if (targetPanX < minPan) targetPanX = minPan;
+  });
+
+  // --- DESKTOP MOUSE PAN LOGIC ---
   carouselModal.addEventListener('mousemove', (e) => {
+      if (isTouching) return;
       const mouseX = e.clientX;
       const windowWidth = window.innerWidth;
       const trackWidth = glossaryTrack.scrollWidth;
@@ -2246,7 +2523,7 @@
 
   function smoothPanLoop() {
       if (carouselModal.style.display === 'flex') {
-          currentPanX += (targetPanX - currentPanX) * 0.08; 
+          currentPanX += (targetPanX - currentPanX) * 0.12; 
           glossaryTrack.style.transform = `translateX(${currentPanX}px)`;
       }
       requestAnimationFrame(smoothPanLoop);
@@ -2254,6 +2531,10 @@
 
   function openCarousel() {
       ensureAudio();
+      renderGlossary();
+      targetPanX = 0;
+      currentPanX = 0;
+      glossaryTrack.style.transform = `translateX(0px)`;
       carouselModal.style.display = 'flex';
   }
 
@@ -2271,10 +2552,10 @@
   });
   
   carouselModal.addEventListener('click', (e) => {
-      if (e.target === carouselModal || e.target.id === 'glossary-container') closeCarousel();
+      if (e.target === carouselModal) closeCarousel();
   });
 
-  // Initialize
+  // Initialize Engine
   renderGlossary();
   smoothPanLoop();
   updateUI();
